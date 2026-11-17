@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 100 100%27%3E%3Ctext y=%27.9em%27 font-size=%2790%27%3E%F0%9F%8F%8E%3C/text%3E%3C/svg%3E">
+  <title>Fake Host (dev)</title>
+  <style>
+    body { font: 14px/1.4 system-ui, sans-serif; background: #15131f; color: #eee; margin: 0; padding: 14px; }
+    h1 { font-size: 18px; margin: 0 0 8px; }
+    fieldset { border: 1px solid #444; border-radius: 8px; margin: 0 0 10px; padding: 8px 10px; }
+    legend { color: #ffd23f; font-weight: 700; }
+    button, select, input { font: inherit; padding: 4px 10px; margin: 2px; border-radius: 6px; border: 1px solid #666; background: #2a2640; color: #fff; cursor: pointer; }
+    button:hover { background: #3a3560; }
+    pre { background: #0b0a12; padding: 8px; border-radius: 6px; overflow: auto; max-height: 220px; margin: 4px 0; }
+    table { border-collapse: collapse; }
+    td, th { padding: 2px 10px; text-align: left; border-bottom: 1px solid #333; font-variant-numeric: tabular-nums; }
+    .ok { color: #3ddc84; }
+  </style>
+</head>
+<body>
+  <h1>Fake host — room <b id="room">TEST</b> <span id="status" class="ok"></span></h1>
+
+  <fieldset><legend>Phase</legend>
+    <button data-phase="lobby">lobby</button>
+    <button data-phase="countdown">countdown</button>
+    <button data-phase="race">race</button>
+    <button data-phase="results">results</button>
+    <button id="btnDrop" onclick="window.__fake.dropAll()">drop all connections</button>
+    <button id="btnFull">send "full" to next join</button>
+  </fieldset>
+
+  <fieldset><legend>HUD</legend>
+    place <input id="hPlace" type="number" value="2" min="1" max="8" style="width:50px">
+    / <input id="hTotal" type="number" value="6" min="1" max="8" style="width:50px">
+    lap <input id="hLap" type="number" value="2" min="1" style="width:50px">
+    / <input id="hLaps" type="number" value="3" min="1" style="width:50px">
+    item <select id="hItem"><option value="">(none)</option></select>
+    <label><input id="hSpin" type="checkbox"> itemSpin</label>
+    <label><input id="hFin" type="checkbox"> finished</label>
+    <button id="btnHud">send hud</button>
+    <label><input id="hAuto" type="checkbox"> auto 6Hz</label>
+    <button id="btnBuzz">buzz 200ms</button>
+  </fieldset>
+
+  <fieldset><legend>Results</legend>
+    <button id="btnResults">send results</button>
+  </fieldset>
+
+  <fieldset><legend>Players</legend>
+    <table id="players"><thead><tr><th>slot</th><th>name</th><th>char</th><th>ready</th><th>s</th><th>g</th><th>b</th><th>d</th><th>i</th><th>seq</th><th>in/s</th></tr></thead><tbody></tbody></table>
+  </fieldset>
+
+  <fieldset><legend>Log</legend><pre id="log"></pre></fieldset>
+
+  <script type="module" src="./fakehost.js"></script>
+</body>
+</html>

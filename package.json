@@ -1,0 +1,23 @@
+{
+  "name": "party-karts",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host",
+    "build": "vite build",
+    "preview": "vite preview --host --port 4173",
+    "test": "vitest run",
+    "e2e": "playwright test"
+  },
+  "dependencies": {
+    "peerjs": "1.5.4",
+    "qrcode": "1.5.4",
+    "three": "0.170.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.56.1",
+    "vite": "5.4.11",
+    "vitest": "2.1.8"
+  }
+}

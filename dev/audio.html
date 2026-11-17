@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Party Karts - audio lab</title>
+<link rel="icon" href="data:,">
+<style>
+  body { font: 14px system-ui, sans-serif; background: #14161f; color: #e8ebf5; margin: 0; padding: 16px; }
+  h1 { font-size: 18px; margin: 0 0 12px; }
+  h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .08em; color: #8fa0d6; margin: 18px 0 8px; }
+  button { background: #2a3150; color: #fff; border: 1px solid #424c7a; border-radius: 6px; padding: 7px 11px; margin: 0 6px 6px 0; cursor: pointer; font: inherit; }
+  button:hover { background: #3a4470; }
+  button.on { background: #1d8f5a; border-color: #35c985; }
+  .row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 6px; }
+  label { display: inline-flex; align-items: center; gap: 6px; }
+  #meter { width: 240px; height: 14px; background: #222638; border-radius: 7px; overflow: hidden; }
+  #meter > div { height: 100%; width: 0; background: linear-gradient(90deg, #35c985, #f2c94c, #eb5757); }
+  #log { font: 12px ui-monospace, monospace; color: #8a93b5; margin-top: 12px; }
+</style>
+</head>
+<body>
+<h1>Party Karts - audio lab</h1>
+<div class="row">
+  <button id="unlock">Unlock audio</button>
+  <label><input type="checkbox" id="mute"> mute</label>
+  <label>master <input type="range" id="vol" min="0" max="1" step="0.01" value="0.8"></label>
+  <div id="meter"><div id="meterFill"></div></div>
+  <span id="state">locked</span>
+</div>
+
+<h2>Music</h2>
+<div class="row" id="themes"></div>
+<div class="row">
+  <button id="stopMusic">Stop music</button>
+  <label>tempo x<span id="tempoVal">1.00</span> <input type="range" id="tempo" min="0.7" max="1.4" step="0.01" value="1"></label>
+</div>
+
+<h2>Engines</h2>
+<div class="row">
+  <label>karts <input type="number" id="karts" min="0" max="8" value="1" style="width:50px"></label>
+  <label>speed <input type="range" id="speed" min="0" max="1" step="0.01" value="0"></label>
+  <label><input type="checkbox" id="boosting"> boosting</label>
+  <label><input type="checkbox" id="drifting"> drifting</label>
+  <button id="sweep">Sweep speed</button>
+  <button id="enginesOff">Engines off</button>
+</div>
+
+<h2>SFX</h2>
+<div class="row">
+  <label>volume <input type="range" id="sfxVol" min="0" max="1" step="0.01" value="1"></label>
+  <label>pan <input type="range" id="sfxPan" min="-1" max="1" step="0.1" value="0"></label>
+  <label>pitch <input type="range" id="sfxPitch" min="0.5" max="2" step="0.05" value="1"></label>
+</div>
+<div class="row" id="sfx"></div>
+<div id="log"></div>
+<script type="module" src="./audio.js"></script>
+</body>
+</html>

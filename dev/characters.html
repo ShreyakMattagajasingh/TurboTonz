@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Party Karts - character lab</title>
+<link rel="icon" href="data:,">
+<style>
+  html, body { margin: 0; height: 100%; background: #9fd4ff; overflow: hidden; font: 13px system-ui, sans-serif; color: #fff; }
+  canvas#c { display: block; width: 100vw; height: 100vh; }
+  #ui { position: fixed; top: 10px; left: 10px; right: 10px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  #ui button { background: rgba(20, 24, 40, .72); color: #fff; border: 1px solid rgba(255,255,255,.25); border-radius: 8px; padding: 6px 10px; cursor: pointer; font: inherit; }
+  #ui button.on { background: #ff7a1a; border-color: #ffd0a8; }
+  #ui .sep { width: 10px; }
+  #stats { position: fixed; top: 48px; left: 12px; font: 11px ui-monospace, monospace; color: #10203a; background: rgba(255,255,255,.65); padding: 4px 8px; border-radius: 6px; white-space: pre; }
+  #portraits { position: fixed; left: 0; right: 0; bottom: 8px; display: flex; justify-content: center; gap: 10px; }
+  #portraits figure { margin: 0; text-align: center; background: rgba(20,24,40,.55); border-radius: 12px; padding: 4px 6px 4px; }
+  #portraits img { width: 96px; height: 96px; display: block; border-radius: 10px; background: radial-gradient(circle at 50% 40%, rgba(255,255,255,.35), rgba(255,255,255,0) 70%); }
+  #portraits figcaption { font-weight: 700; font-size: 12px; margin-top: 2px; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="ui"></div>
+<div id="stats"></div>
+<div id="portraits"></div>
+<script type="module" src="./characters.js"></script>
+</body>
+</html>

@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#140b33">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="format-detection" content="telephone=no">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 100 100%27%3E%3Ctext y=%27.9em%27 font-size=%2790%27%3E%F0%9F%8F%8E%3C/text%3E%3C/svg%3E">
+  <title>Party Karts Pad</title>
+  <link rel="stylesheet" href="/src/pad/pad.css">
+</head>
+<body>
+  <div id="bg"></div>
+
+  <!-- connection status (always visible) -->
+  <div id="net" class="net" data-state="idle"><i class="dot"></i><span id="netPing">--</span></div>
+  <div id="banner" class="banner" hidden>
+    <span class="spin sm"></span><span id="bannerText">Reconnecting…</span>
+    <button id="leaveBtn" class="chip" type="button">LEAVE</button>
+  </div>
+
+  <!-- 1. JOIN -->
+  <section id="join" class="screen active">
+    <div class="join-card">
+      <div class="logo" aria-label="Party Karts">
+        <span class="l1">PARTY</span><span class="l2">KARTS</span>
+        <svg class="flag" viewBox="0 0 64 24" aria-hidden="true"><path d="M2 20 Q16 4 32 14 T62 8" fill="none" stroke="#ffd23f" stroke-width="5" stroke-linecap="round"/></svg>
+      </div>
+      <form id="joinForm" autocomplete="off" novalidate>
+        <label class="field" id="codeField">
+          <span class="lbl">ROOM CODE</span>
+          <input id="codeInput" class="code-in" maxlength="4" autocapitalize="characters" autocorrect="off" autocomplete="off" spellcheck="false" placeholder="ABCD" enterkeyhint="next">
+        </label>
+        <div id="roomBadge" class="room-badge" hidden>
+          <span class="lbl">ROOM</span><b id="roomBadgeCode">----</b>
+          <button id="changeRoom" class="chip" type="button">CHANGE</button>
+        </div>
+        <label class="field" id="nameField">
+          <span class="lbl">YOUR NAME</span>
+          <input id="nameInput" class="name-in" maxlength="12" autocomplete="off" autocorrect="off" spellcheck="false" placeholder="Speedy" enterkeyhint="go">
+        </label>
+        <button id="joinBtn" class="btn btn-go" type="submit"><span id="joinLabel">JOIN</span></button>
+        <div id="joinStatus" class="join-status" aria-live="polite"></div>
+      </form>
+    </div>
+  </section>
+
+  <!-- 2. LOBBY -->
+  <section id="lobby" class="screen">
+    <div class="lobby-scroll">
+      <header class="me-banner" id="meBanner">
+        <div class="slot"><small>PLAYER</small><b id="meSlot">1</b></div>
+        <div class="me-info">
+          <div class="me-name" id="meName">Player</div>
+          <div class="me-sub" id="meSub">Pick your racer</div>
+        </div>
+        <div class="me-char" id="meChar"></div>
+      </header>
+
+      <div class="lobby-cols">
+        <div class="col-chars">
+          <h2 class="sect">PICK YOUR RACER</h2>
+          <div class="char-grid" id="charGrid"></div>
+          <div class="stats" id="charStats"></div>
+        </div>
+        <div class="col-side">
+          <div id="leaderPanel" class="leader" hidden>
+            <h2 class="sect">HOST CONTROLS <span class="crown">★ LEADER</span></h2>
+            <div class="row track">
+              <button class="btn btn-sm btn-arrow" id="trackPrev" type="button" aria-label="Previous track">◀</button>
+              <div class="track-name"><small>TRACK</small><b id="trackName">--</b></div>
+              <button class="btn btn-sm btn-arrow" id="trackNext" type="button" aria-label="Next track">▶</button>
+            </div>
+            <div class="row two">
+              <button class="btn btn-sm btn-opt" id="lapsBtn" type="button"><small>LAPS</small><b id="lapsVal">3</b></button>
+              <button class="btn btn-sm btn-opt" id="cpuBtn" type="button"><small>CPU FILL</small><b id="cpuVal">TAP</b></button>
+            </div>
+          </div>
+          <h2 class="sect">IN THE ROOM <span id="roomCount" class="count">1</span></h2>
+          <ul id="players" class="players"></ul>
+        </div>
+      </div>
+    </div>
+    <footer class="lobby-bar">
+      <button id="startBtn" class="btn btn-start" type="button" hidden>START RACE</button>
+      <button id="readyBtn" class="btn btn-ready" type="button"><span class="tick">✔</span><span id="readyLabel">READY?</span></button>
+    </footer>
+  </section>
+
+  <!-- 3. RACE -->
+  <section id="race" class="screen">
+    <header id="hud" class="hud">
+      <div class="pill place"><b id="hudPlace">-</b><sup id="hudPlaceSuf"></sup><small id="hudTotal"></small></div>
+      <div class="pill lap"><small>LAP</small><b id="hudLap">1</b><small id="hudLaps">/3</small></div>
+      <div class="steer-ind" aria-hidden="true"><i class="mid"></i><i class="needle" id="steerNeedle"></i></div>
+      <div class="pill mode" id="hudMode">TILT</div>
+    </header>
+
+    <div id="steerZone" class="steer-zone" data-mode="tilt">
+      <div class="tilt-view" id="tiltView">
+        <div class="wheel" id="wheel">
+          <svg viewBox="-10 -10 140 140" aria-hidden="true">
+            <circle cx="60" cy="60" r="52" fill="none" stroke="#1b1030" stroke-width="22"/>
+            <circle cx="60" cy="60" r="52" fill="none" stroke="#ffffff" stroke-width="14"/>
+            <rect x="8" y="53" width="104" height="14" rx="7" fill="#1b1030"/>
+            <rect x="10" y="55" width="100" height="10" rx="5" fill="#27e1ff"/>
+            <rect x="53" y="60" width="14" height="52" rx="7" fill="#1b1030"/>
+            <rect x="55" y="60" width="10" height="50" rx="5" fill="#27e1ff"/>
+            <circle cx="60" cy="60" r="16" fill="#1b1030"/>
+            <circle cx="60" cy="60" r="12" fill="#ffd23f"/>
+            <path d="M60 4 v20" stroke="#ff3d81" stroke-width="8" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <div class="tilt-msg" id="tiltMsg">TILT TO STEER</div>
+        <button id="enableTilt" class="btn btn-sm btn-enable" type="button" hidden>ENABLE TILT</button>
+      </div>
+      <div class="slide-view" id="slideView">
+        <div class="track" id="slideTrack">
+          <div class="ticks"></div>
+          <div class="thumb" id="slideThumb"><span>◀ ▶</span></div>
+        </div>
+        <div class="tilt-msg">SLIDE TO STEER</div>
+      </div>
+      <div class="zone-tools">
+        <button id="calBtn" class="chip chip-big" type="button">⌖ CENTER</button>
+        <button id="modeBtn" class="chip chip-big" type="button">TOUCH</button>
+      </div>
+    </div>
+
+    <div id="btns" class="btns">
+      <div id="gasBtn" class="rbtn gas" role="button" aria-label="Gas">
+        <svg class="ico" viewBox="0 0 48 48" aria-hidden="true"><path d="M10 30 L24 14 L38 30" fill="none" stroke="currentColor" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/><path d="M10 42 L24 26 L38 42" fill="none" stroke="currentColor" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" opacity=".55"/></svg>
+        <span class="lab">GAS</span>
+        <button id="autoGas" class="chip auto on" type="button">AUTO ON</button>
+      </div>
+      <div id="itemBtn" class="rbtn item" role="button" aria-label="Use item">
+        <div class="item-ico" id="itemIco"></div>
+        <span class="lab" id="itemLab">ITEM</span>
+      </div>
+      <div id="brakeBtn" class="rbtn brake" role="button" aria-label="Brake">
+        <svg class="ico" viewBox="0 0 48 48" aria-hidden="true"><rect x="9" y="9" width="30" height="30" rx="8" fill="currentColor"/></svg>
+        <span class="lab">BRAKE</span>
+      </div>
+      <div id="driftBtn" class="rbtn drift" role="button" aria-label="Drift and hop">
+        <svg class="ico" viewBox="0 0 48 48" aria-hidden="true"><path d="M10 38 C10 20 20 12 38 12" fill="none" stroke="currentColor" stroke-width="7" stroke-linecap="round"/><path d="M28 3 L40 12 L28 22 Z" fill="currentColor" stroke="currentColor" stroke-width="3" stroke-linejoin="round"/></svg>
+        <span class="lab">DRIFT</span>
+        <small class="sub">HOLD TO HOP</small>
+      </div>
+    </div>
+
+    <div id="raceOverlay" class="race-overlay" hidden><b id="raceOverlayText">GET READY</b></div>
+    <div id="finishBanner" class="finish-banner" hidden>🏁 FINISHED!</div>
+  </section>
+
+  <!-- 4. RESULTS -->
+  <section id="results" class="screen">
+    <div class="res-wrap">
+      <div class="res-hero" id="resHero">
+        <div class="res-label" id="resLabel">YOU FINISHED</div>
+        <div class="res-place" id="resPlace"><b>-</b><sup></sup></div>
+        <div class="res-time" id="resTime">--:--.---</div>
+        <div class="res-wait" id="resWait">Waiting for host<span class="dots"><i>.</i><i>.</i><i>.</i></span></div>
+      </div>
+      <div class="res-list-wrap">
+        <h2 class="sect">STANDINGS</h2>
+        <ol class="standings" id="standings"></ol>
+      </div>
+    </div>
+  </section>
+
+  <!-- overlays -->
+  <div id="rotate" class="rotate">
+    <div class="rot-phone"><i></i></div>
+    <b>ROTATE YOUR PHONE</b>
+    <small>Race mode plays sideways</small>
+  </div>
+  <div id="toast" class="toast" hidden></div>
+
+  <script type="module" src="/src/pad/main.js"></script>
+</body>
+</html>

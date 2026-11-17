@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Party Karts</title>
+  <meta name="description" content="A couch kart racer — the laptop is the TV, phones are the controllers." />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏁</text></svg>" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Nunito:wght@600;800;900&display=swap" rel="stylesheet" />
+</head>
+<body data-screen="lobby">
+  <div id="stage"></div>
+  <div id="hud"></div>
+
+  <div id="topbar">
+    <button id="btn-mute" title="Mute (M)">🔊</button>
+    <button id="btn-full" title="Fullscreen">⛶</button>
+  </div>
+
+  <!-- LOBBY -->
+  <section id="lobby" class="screen">
+    <header class="lobby-head">
+      <h1 class="logo"><span>PARTY</span><span>KARTS</span></h1>
+      <div class="tagline">Grab your phones. Scan. Race.</div>
+    </header>
+    <div class="lobby-grid">
+      <div class="card join">
+        <div class="card-title">JOIN ON YOUR PHONE</div>
+        <div class="qr-wrap"><img id="qr" alt="QR code" /></div>
+        <div class="code-lbl">ROOM CODE</div>
+        <div id="room-code" class="code">----</div>
+        <div id="room-url" class="url"></div>
+        <div id="room-status" class="room-status">Opening room…</div>
+        <div id="lan-warning" class="lan-warning">You're on <b>localhost</b> — phones can't reach it. Open via your LAN IP (see terminal) or the Vercel URL.</div>
+      </div>
+      <div class="card players-card">
+        <div class="card-title">RACERS</div>
+        <div id="players" class="players"></div>
+        <div class="kb-hint">
+          <div><kbd>Space</kbd> join with keyboard (<kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> · drift <kbd>Space</kbd> · item <kbd>E</kbd>)</div>
+          <div><kbd>↑</kbd> join with arrows (drift <kbd>/</kbd> · item <kbd>.</kbd>) · 🎮 press <kbd>A</kbd> on a gamepad</div>
+          <div><kbd>A</kbd>/<kbd>D</kbd> or <kbd>←</kbd>/<kbd>→</kbd> change character · <kbd>Enter</kbd> start</div>
+        </div>
+      </div>
+      <div class="card track-card">
+        <div class="card-title">TRACK</div>
+        <canvas id="track-preview" width="360" height="230"></canvas>
+        <div class="track-sel">
+          <button id="trk-prev" class="arrow">◀</button>
+          <div id="track-name" class="track-name">Sunny Meadow</div>
+          <button id="trk-next" class="arrow">▶</button>
+        </div>
+        <div class="settings">
+          <button id="btn-laps" class="set"><span>Laps</span><b id="set-laps">3</b></button>
+          <button id="btn-cc" class="set"><span>Speed</span><b id="set-cc">100cc</b></button>
+          <button id="btn-cpu" class="set"><span>CPU racers</span><b id="set-cpu">ON</b></button>
+        </div>
+        <button id="btn-start" class="start" disabled>Waiting for players…</button>
+      </div>
+    </div>
+    <footer class="help">
+      <div class="help-l"><b>Drift</b>: hold drift while turning — release on <span class="c1">blue</span>, <span class="c2">orange</span> or <span class="c3">purple</span> sparks for a boost!</div>
+      <div id="help-items" class="help-items"></div>
+    </footer>
+  </section>
+
+  <!-- RESULTS -->
+  <section id="results" class="screen">
+    <div class="results-box">
+      <h2 id="results-title">RACE COMPLETE</h2>
+      <div id="results-list" class="results-list"></div>
+      <div class="results-actions">
+        <button id="btn-next" class="start">NEXT TRACK <small>(N)</small></button>
+        <button id="btn-lobby" class="ghost">LOBBY <small>(Enter)</small></button>
+      </div>
+    </div>
+  </section>
+
+  <!-- PAUSE -->
+  <section id="pause" class="screen">
+    <div class="pause-box">
+      <h2>PAUSED</h2>
+      <button id="btn-resume" class="start">RESUME</button>
+      <button id="btn-quit" class="ghost">QUIT TO LOBBY</button>
+    </div>
+  </section>
+
+  <script type="module" src="/src/host/main.js"></script>
+</body>
+</html>
