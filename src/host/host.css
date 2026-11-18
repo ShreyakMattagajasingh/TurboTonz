@@ -191,7 +191,7 @@ kbd { display: inline-block; min-width: 22px; padding: 1px 6px; margin: 0 1px; b
 .hud-banner.falls { color: #bfe9ff; font-size: calc(70px * var(--s)); top: 14%; -webkit-text-stroke: calc(7px * var(--s)) #0b3a6b; letter-spacing: 1px; }
 
 /* ---------------- sound gate + remote focus ---------------- */
-.sound-gate { position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%); z-index: 40; border: 2px solid rgba(255,210,63,.7); border-radius: 99px; padding: 10px 20px; background: rgba(18,12,44,.88); color: #fff; font-weight: 800; font-size: 16px; backdrop-filter: blur(8px); animation: breathe 2.2s ease-in-out infinite; }
+.sound-gate { position: fixed; left: 50%; top: 14px; transform: translateX(-50%); z-index: 40; border: 2px solid rgba(255,210,63,.7); border-radius: 99px; padding: 10px 20px; background: rgba(18,12,44,.88); color: #fff; font-weight: 800; font-size: 16px; backdrop-filter: blur(8px); animation: breathe 2.2s ease-in-out infinite; }
 .sound-gate b { color: var(--gold); }
 .sound-gate.hide { display: none; }
 #lobby button:focus-visible, #results button:focus-visible, #pause button:focus-visible { outline: 4px solid var(--gold); outline-offset: 3px; box-shadow: 0 0 0 8px rgba(255,210,63,.25); }

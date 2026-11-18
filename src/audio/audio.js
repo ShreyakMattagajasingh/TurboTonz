@@ -143,7 +143,13 @@ export class AudioEngine {
     } catch (e) { /* noop */ }
   }
 
-  _tick(track) {
+  // Queue `sec` seconds of music right now, so a long synchronous job (rebuilding the 3D
+  // world when the track changes) doesn't starve the scheduler and cut the music out.
+  bridge(sec = 2) {
+    try { if (this._track && !this._track.fading) this._tick(this._track, sec); } catch { /* noop */ }
+  }
+
+  _tick(track, ahead = LOOKAHEAD) {
     if (track.dead || !this.ctx) return;
     try {
       const ctx = this.ctx;
@@ -156,9 +162,10 @@ export class AudioEngine {
         this._tempoCur += (this._tempoTarget - this._tempoCur) * k;
       }
       if (track.next < now - 0.1) track.next = now + 0.02; // tab was throttled: resync, no burst
-      const horizon = now + LOOKAHEAD;
+      const horizon = now + ahead;
       let guard = 0;
-      while (track.next < horizon && guard++ < 8) {
+      const maxSteps = 8 + Math.ceil(ahead / 0.04);
+      while (track.next < horizon && guard++ < maxSteps) {
         const sd = 60 / (track.theme.bpm * this._tempoCur) / 4;
         playStep(ctx, track.out, track.theme, track.step, track.next, sd);
         track.next += sd;

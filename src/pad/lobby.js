@@ -75,7 +75,6 @@ export function createLobby(ctx) {
     $('#startBtn').hidden = !leader;
     if (leader) {
       $('#trackName').textContent = m.trackName || m.track || '--';
-      $('#lapsVal').textContent = m.laps ?? '-';
       $('#ccVal').textContent = m.cc ? m.cc + 'cc' : '150cc';
       const cpu = m.cpu;
       $('#cpuVal').textContent = cpu === true ? 'ON' : cpu === false || cpu === 0 ? 'OFF' : cpu == null ? '—' : String(cpu);
@@ -130,7 +129,6 @@ export function createLobby(ctx) {
   const menu = (a) => () => { haptic(18); ctx.send({ t: 'menu', a }); };
   $('#trackPrev').addEventListener('click', menu('left'));
   $('#trackNext').addEventListener('click', menu('right'));
-  $('#lapsBtn').addEventListener('click', menu('laps'));
   $('#ccBtn').addEventListener('click', menu('cc'));
   $('#cpuBtn').addEventListener('click', menu('cpu'));
   $('#startBtn').addEventListener('click', () => { haptic([30, 30, 60]); ctx.send({ t: 'menu', a: 'start' }); });

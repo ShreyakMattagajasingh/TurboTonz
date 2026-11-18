@@ -20,11 +20,12 @@ Power-ups (random, with a slight boost for the back of the pack): **Nitro**, **O
 
 Safety nets: walls sit on the curb, so nobody leaves the road. If you drive the wrong way for about 2 s, get stuck, or drop into the falls, **Hooky the rescue drone** picks you up, turns you the right way and puts you back around the same spot.
 
-Tracks: **Tonztown Circuit**, **Dune Canyon**, **Niya Nights**, and the finale **Niyagara Falls**, where you launch off a cliff, glide over the waterfall gorge and land on the far side.
+Tracks: **Tonztown Circuit**, **Dune Caniyan**, **Niya Nights**, and the finale **Niyagara Falls**, where you launch off a cliff, glide over the waterfall gorge and land on the far side.
+
+Races are 3 laps. A race ends once every human has finished (CPUs don't hold it up). The leaderboard shows, then the leader (or `Enter` on the TV) picks **Next race** or **Lobby** to scan in new players or change the track. CPUs drive at the speed class you pick (never faster) and have a spread of skill levels. If a phone disconnects mid-race, a CPU drives that kart until it reconnects.
 
 Laptop-only players:
-- **Keyboard P1:** `Space` to join, `A`/`D` steer, `S`/`Space` drift, `E` item, `W` hop, `Q` boost, `R` new racer (lobby).
-- **Keyboard P2:** `/` to join, `←`/`→` steer, `↓` drift, `.` item, `↑` hop, `,` boost.
+- **Laptop player "Mac":** press `Enter` (or `Space`) to join, `Enter` again to start. Steer with `←`/`→` or `A`/`D`, `↓`/`S`/`Space` drift, `↑`/`W` hop, `.`/`E` item, `Shift`/`Q` boost, `R` new racer (lobby).
 - **Gamepads:** press `A` to join. A = drift, B = item, X = boost, Y = hop.
 
 TV / projector remote (when the game runs in the projector's own browser):

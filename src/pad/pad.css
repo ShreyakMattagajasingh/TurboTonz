@@ -455,3 +455,7 @@ body[data-screen="race"] .net { top: calc(var(--safe-t) + 3px); right: calc(var(
   .btn-ready .tick { width: 28px; height: 28px; font-size: 16px; }
   .btn-start { font-size: 20px; }
 }
+
+/* results: leader picks next race / lobby */
+.res-actions { display: flex; gap: 10px; margin-top: 14px; width: 100%; }
+.res-actions .btn { flex: 1; height: 58px; font-size: 20px; }

@@ -58,7 +58,7 @@ describe('party rules', () => {
   const cpu = (n) => Array.from({ length: n }, (_, i) => ({ name: 'CPU' + i, char: 'c' + i, stats: stats(i), skill: 0.5 + i * 0.05 }));
 
   it('niyagara falls: everyone glides over the gap, nobody falls in', () => {
-    const def = TRACKS.find(t => t.id === 'snow');
+    const def = TRACKS.find(t => t.id === 'falls');
     expect(def.name).toBe('Niyagara Falls');
     for (const cc of [50, 150, 200]) {
       const race = new Race({ trackDef: def, racers: cpu(8), laps: 2, cc, seed: 11 });
@@ -80,7 +80,7 @@ describe('party rules', () => {
   });
 
   it('a kart that stalls mid-air over the gap still lands or gets rescued past it', () => {
-    const def = TRACKS.find(t => t.id === 'snow');
+    const def = TRACKS.find(t => t.id === 'falls');
     const race = new Race({ trackDef: def, racers: [{ human: true, name: 'P', char: 'a', stats: stats(0) }], laps: 3, seed: 2 });
     race.phase = 'race'; race.countdown = 0;
     const k = race.karts[0], g = race.geo, gp = g.gaps[0];

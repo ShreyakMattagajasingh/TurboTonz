@@ -7,6 +7,7 @@ export const THEMES = {
   meadow: { skyTop: '#2f7fe6', skyMid: '#7cc0ff', skyBottom: '#d9f1ff', fog: '#c9e7ff', fogNear: 160, fogFar: 720, sun: '#fff1d0', sunI: 2.9, hemiSky: '#d6ecff', hemiGround: '#4f7d33', hemiI: 1.15, envI: 0.45, ground: '#5fb043', exposure: 1.0 },
   desert: { skyTop: '#3a7bd5', skyMid: '#f2b880', skyBottom: '#ffe3b3', fog: '#f6d2a0', fogNear: 140, fogFar: 640, sun: '#ffe0b0', sunI: 3.2, hemiSky: '#ffe8c8', hemiGround: '#a8743d', hemiI: 1.0, envI: 0.45, ground: '#e6b874', exposure: 1.0 },
   snow: { skyTop: '#5b8fd6', skyMid: '#b9d6f5', skyBottom: '#f2f7ff', fog: '#e4eefa', fogNear: 110, fogFar: 520, sun: '#ffffff', sunI: 2.4, hemiSky: '#eaf3ff', hemiGround: '#9fb5cc', hemiI: 1.3, envI: 0.55, ground: '#eef4fb', exposure: 0.95 },
+  falls: { skyTop: '#2f86e8', skyMid: '#8ccfff', skyBottom: '#e2f6ff', fog: '#cdeef4', fogNear: 150, fogFar: 700, sun: '#fff3d4', sunI: 2.8, hemiSky: '#d8f2ff', hemiGround: '#3c7a36', hemiI: 1.2, envI: 0.5, ground: '#4aa23c', exposure: 1.0 },
   neon: { skyTop: '#05020f', skyMid: '#1c0b3a', skyBottom: '#4a1361', fog: '#1a0b2e', fogNear: 120, fogFar: 600, sun: '#b9c8ff', sunI: 1.6, hemiSky: '#9b7bff', hemiGround: '#2a1640', hemiI: 1.7, envI: 1.1, ground: '#120f1d', exposure: 1.1 },
 };
 
@@ -346,8 +347,8 @@ function buildFalls(world, race, gp, rampTex) {
   const gapLen = Math.hypot(B.x - A.x, B.z - A.z);
   const mid = { x: (A.x + B.x) / 2, z: (A.z + B.z) / 2 };
   const wallLat = geo.w[Math.floor(gp.s0)] + geo.shoulder;
-  const rock = new THREE.MeshStandardMaterial({ color: '#7f90a6', roughness: 0.95, flatShading: true });
-  const snowCap = new THREE.MeshStandardMaterial({ color: '#f4f8ff', roughness: 0.8, flatShading: true });
+  const rock = new THREE.MeshStandardMaterial({ color: '#7a6248', roughness: 0.95, flatShading: true });
+  const snowCap = new THREE.MeshStandardMaterial({ color: '#4fa63f', roughness: 0.9, flatShading: true }); // grassy lip
 
   // cliff faces: the plateau's cross-section (flat top, 5:1 slopes) extruded a little into each side
   const face = (y, sign) => {
@@ -388,13 +389,7 @@ function buildFalls(world, race, gp, rampTex) {
   cliff.rotation.y = heading + Math.PI / 2; cliff.castShadow = true; scene.add(cliff);
   const cap = new THREE.Mesh(new THREE.BoxGeometry(gapLen + 42, 1.2, 15), snowCap);
   cap.position.set(cliff.position.x, BASE_Y + fallsH + 1.2, cliff.position.z); cap.rotation.y = cliff.rotation.y; scene.add(cap);
-  const waterTex = canvasTex(64, 256, (c, w, h) => {
-    const gr = c.createLinearGradient(0, 0, w, 0);
-    gr.addColorStop(0, '#9fd8ff'); gr.addColorStop(0.5, '#e9f7ff'); gr.addColorStop(1, '#9fd8ff');
-    c.fillStyle = gr; c.fillRect(0, 0, w, h);
-    for (let i = 0; i < 90; i++) { c.fillStyle = `rgba(255,255,255,${0.3 + Math.random() * 0.5})`; c.fillRect(Math.random() * w, Math.random() * h, 1 + Math.random() * 3, 20 + Math.random() * 60); }
-    for (let i = 0; i < 40; i++) { c.fillStyle = `rgba(60,140,210,${0.15 + Math.random() * 0.2})`; c.fillRect(Math.random() * w, Math.random() * h, 2 + Math.random() * 4, 30 + Math.random() * 50); }
-  });
+  const waterTex = waterTexture().clone(); waterTex.needsUpdate = true;
   waterTex.repeat.set(3, 1.5);
   const water = new THREE.Mesh(new THREE.PlaneGeometry(gapLen + 6, fallsH),
     new THREE.MeshStandardMaterial({ map: waterTex, emissive: '#bfe6ff', emissiveMap: waterTex, emissiveIntensity: 0.35, transparent: true, opacity: 0.92, roughness: 0.2, side: THREE.DoubleSide }));
@@ -440,10 +435,47 @@ function buildFalls(world, race, gp, rampTex) {
   scene.add(gantry);
 }
 
+// a cliff with a waterfall and a plunge pool, facing the track (background scenery)
+function distantFalls(world, x, z, p, r) {
+  const scene = world.scene;
+  const h = 22 + r() * 18, w = 16 + r() * 12;
+  const face = Math.atan2(p.cx - x, p.cz - z); // turn towards the track
+  const g = new THREE.Group();
+  g.position.set(x, BASE_Y, z); g.rotation.y = face;
+  const rock = new THREE.MeshStandardMaterial({ color: '#7a6248', roughness: 0.95, flatShading: true });
+  const grass = new THREE.MeshStandardMaterial({ color: '#4fa63f', roughness: 0.9, flatShading: true });
+  const cliff = new THREE.Mesh(new THREE.BoxGeometry(w + 18, h, 12), rock); cliff.position.set(0, h / 2, -6); g.add(cliff);
+  const top = new THREE.Mesh(new THREE.BoxGeometry(w + 19, 1.4, 13), grass); top.position.set(0, h + 0.5, -6); g.add(top);
+  const tex = waterTexture().clone(); tex.needsUpdate = true; tex.repeat.set(2, 1.2);
+  const water = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshStandardMaterial({ map: tex, emissive: '#bfe6ff', emissiveMap: tex, emissiveIntensity: 0.35, transparent: true, opacity: 0.93, roughness: 0.2 }));
+  water.position.set(0, h / 2, 0.15); g.add(water);
+  const pool = new THREE.Mesh(new THREE.CircleGeometry(w * 0.8, 24).rotateX(-Math.PI / 2), new THREE.MeshStandardMaterial({ color: '#2f9fdc', roughness: 0.1, metalness: 0.2 }));
+  pool.scale.set(1, 1, 0.6); pool.position.set(0, 0.12, w * 0.45); g.add(pool);
+  const mist = new THREE.Sprite(new THREE.SpriteMaterial({ map: T.particleTexture(), color: '#ffffff', transparent: true, opacity: 0.5, depthWrite: false }));
+  mist.position.set(0, 2, 2); mist.scale.set(w * 1.2, 7, 1); g.add(mist);
+  cliff.castShadow = true;
+  scene.add(g);
+  const ph = r() * 6;
+  world.animated.push((t) => { tex.offset.y = t * 1.0 + ph; mist.scale.y = 7 + Math.sin(t * 1.4 + ph) * 1.5; });
+}
+
+let _waterTex = null;
+function waterTexture() {
+  if (_waterTex) return _waterTex;
+  _waterTex = canvasTex(64, 256, (c, w, h) => {
+    const gr = c.createLinearGradient(0, 0, w, 0);
+    gr.addColorStop(0, '#9fd8ff'); gr.addColorStop(0.5, '#e9f7ff'); gr.addColorStop(1, '#9fd8ff');
+    c.fillStyle = gr; c.fillRect(0, 0, w, h);
+    for (let i = 0; i < 90; i++) { c.fillStyle = `rgba(255,255,255,${0.3 + Math.random() * 0.5})`; c.fillRect(Math.random() * w, Math.random() * h, 1 + Math.random() * 3, 20 + Math.random() * 60); }
+    for (let i = 0; i < 40; i++) { c.fillStyle = `rgba(60,140,210,${0.15 + Math.random() * 0.2})`; c.fillRect(Math.random() * w, Math.random() * h, 2 + Math.random() * 4, 30 + Math.random() * 50); }
+  });
+  return _waterTex;
+}
+
 function buildWalls(world, geo, theme, wall, r) {
   const scene = world.scene;
-  if (theme === 'meadow') {
-    const tex = T.curbTexture('meadow');
+  if (theme === 'meadow' || theme === 'falls') {
+    const tex = T.curbTexture(theme);
     const mat = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.6 });
     for (const side of [-1, 1]) {
       const g = extrude(geo, wall, [[-0.45, 0], [-0.45, 0.9], [-0.2, 1.1], [0.45, 1.1], [0.45, 0]], side, { alongTile: 4 });
@@ -485,7 +517,7 @@ function buildStart(world, geo, theme) {
   scene.add(line);
   const g = new THREE.Group();
   g.position.set(p.x, p.y, p.z); g.rotation.y = heading;
-  const colors = { meadow: '#e8333a', desert: '#e2762b', snow: '#2f7fe0', neon: '#ff2fd0' };
+  const colors = { meadow: '#e8333a', desert: '#e2762b', snow: '#2f7fe0', neon: '#ff2fd0', falls: '#1f8fd8' };
   const pillarMat = new THREE.MeshStandardMaterial({ color: theme === 'neon' ? '#221b38' : '#f2f2f2', roughness: 0.5, metalness: 0.2 });
   const span = geo.w[0] + geo.shoulder - 1;
   for (const s of [-1, 1]) {
@@ -572,6 +604,19 @@ function buildDecor(world, race, theme, r) {
     place(30, 4, 30, (x, y, z) => { S.add('palmTrunk', x, y, z, r() * 6, 0.8 + r() * 0.4); S.add('palmLeaves', x, y, z, r() * 6, 0.8 + r() * 0.4); });
     clouds(world, cx, cz, span, 6, r, 0.7);
     lake(scene, geo, r, '#2fb6c9', 0.9, world);
+  } else if (theme === 'falls') {
+    // lush valley: thick forest, ferns, flowers, extra waterfalls in the distance. No rocks, no snow.
+    place(260, 3, 85, (x, y, z) => {
+      const s = 0.85 + r() * 0.8;
+      if (r() < 0.55) { S.add('trunk', x, y, z, r() * 6, s); S.add('canopy', x, y, z, r() * 6, s, hsl(0.28 + r() * 0.07, 0.6, 0.3 + r() * 0.12)); S.add('canopy2', x, y, z, r() * 6, s, hsl(0.26 + r() * 0.08, 0.6, 0.36 + r() * 0.1)); }
+      else { S.add('pineTrunk', x, y, z, 0, s); S.add('pine', x, y, z, r() * 6, s * 1.1, hsl(0.37, 0.5, 0.22 + r() * 0.08)); }
+    });
+    place(220, 2, 45, (x, y, z) => S.add('bush', x, y, z, r() * 6, 0.6 + r() * 1.0, hsl(0.27 + r() * 0.08, 0.6, 0.3 + r() * 0.12)));
+    place(700, 1.5, 55, (x, y, z) => S.add('flower', x, y, z, 0, 0.8 + r() * 0.6, ['#ff5a7a', '#ffd23f', '#ffffff', '#b58cff', '#4fd0ff'][Math.floor(r() * 5)]));
+    place(22, 110, 260, (x, y, z) => S.add('dune', x, BASE_Y - 2, z, r() * 6, 40 + r() * 50, hsl(0.29 + r() * 0.05, 0.5, 0.3 + r() * 0.1), 16 + r() * 24));
+    for (let i = 0; i < 4; i++) place(1, 45, 110, (x, y, z, d, p) => distantFalls(world, x, z, p, r));
+    clouds(world, cx, cz, span, 18, r, 0.95);
+    lake(scene, geo, r, '#2fa8e0', 0.88, world);
   } else if (theme === 'snow') {
     place(220, 3, 80, (x, y, z) => {
       const s = 0.8 + r() * 0.9;

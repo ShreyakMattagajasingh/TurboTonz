@@ -84,7 +84,10 @@ function onConnection(conn) {
     if (!m || typeof m !== 'object') return;
     if (m.t === 'hello') {
       player = app.players.find(p => p.pid === m.pid && p.kind === 'pad');
-      if (player) { player.conn = conn; player.name = cleanName(m.name) || player.name; player.connected = true; }
+      if (player) {
+        player.conn = conn; player.name = cleanName(m.name) || player.name; player.connected = true;
+        const k = kartFor(player); if (k && !k.finished && k.autoDriven) { k.ai = null; k.autoDriven = false; }
+      }
       else {
         if (app.players.length >= MAX_PLAYERS || app.phase !== 'lobby') {
           if (app.players.length >= MAX_PLAYERS) { conn.send({ t: 'full' }); return; }
@@ -117,6 +120,7 @@ function onConnection(conn) {
     if (!player) return;
     player.connected = false; player.conn = null;
     player.input = emptyInput();
+    const k = kartFor(player); if (k && !k.finished && !k.ai) { k.ai = app.race.makeAI(0.6); k.autoDriven = true; }
     // in lobby, drop pads that disconnect for > 20s
     const pid = player.pid;
     setTimeout(() => {
@@ -155,7 +159,7 @@ function addPlayer({ kind, pid, name, conn, gpIndex }) {
   if (slot < 0) return null;
   const p = {
     slot, pid: pid || kind + slot, kind, conn, gpIndex, connected: true,
-    name: name || (kind === 'pad' ? 'Player ' + (slot + 1) : kind === 'gp' ? 'Pad ' + (slot + 1) : 'Keys ' + (slot + 1)),
+    name: name || (kind === 'pad' ? 'Player ' + (slot + 1) : kind === 'gp' ? 'Pad ' + (slot + 1) : kind === 'kb1' ? 'Mac' : 'Keys ' + (slot + 1)),
     color: SLOT_COLORS[slot], char: randomFreeChar(null), shuffles: SHUFFLES,
     ready: kind !== 'pad', input: emptyInput(), joinedAt: performance.now(),
   };
@@ -192,12 +196,15 @@ function broadcastLobby() {
 function broadcast(msg) { for (const p of app.players) if (p.conn) p.conn.send(msg); }
 
 function menuAction(a) {
-  if (app.phase === 'results') { if (a === 'start') backToLobby(); return; }
+  if (app.phase === 'results') {
+    if (a === 'next') nextTrack();
+    else if (a === 'start' || a === 'lobby') backToLobby();
+    return;
+  }
   if (app.phase !== 'lobby') return;
   const S = app.settings;
   if (a === 'left') S.track = (S.track + TRACKS.length - 1) % TRACKS.length;
   if (a === 'right') S.track = (S.track + 1) % TRACKS.length;
-  if (a === 'laps') S.laps = S.laps % 5 + 1;
   if (a === 'cpu') S.cpu = !S.cpu;
   if (a === 'cc') S.cc = CC_STEPS[(CC_STEPS.indexOf(S.cc) + 1) % CC_STEPS.length];
   if (a === 'start') { startRace(); return; }
@@ -210,7 +217,6 @@ function menuAction(a) {
 function renderLobby() {
   const S = app.settings, tr = TRACKS[S.track];
   $('#track-name').textContent = tr.name;
-  $('#set-laps').textContent = S.laps;
   $('#set-cc').textContent = S.cc + 'cc';
   $('#set-cpu').textContent = S.cpu ? 'ON' : 'OFF';
   drawTrackPreview($('#track-preview'), tr);
@@ -250,7 +256,7 @@ function drawTrackPreview(canvas, def) {
   const ox = (W - (g.maxX - g.minX) * sc) / 2, oy = (H - (g.maxZ - g.minZ) * sc) / 2;
   const P = (i) => [(g.x[i] - g.minX) * sc + ox, (g.z[i] - g.minZ) * sc + oy];
   ctx.lineCap = ctx.lineJoin = 'round';
-  const col = { meadow: '#5fd35a', desert: '#ffb35a', snow: '#9fd8ff', neon: '#ff4fd8' }[def.theme];
+  const col = { meadow: '#5fd35a', desert: '#ffb35a', snow: '#9fd8ff', neon: '#ff4fd8', falls: '#4fd0ff' }[def.theme];
   for (const [lw, c] of [[16, 'rgba(0,0,0,.35)'], [11, col], [5, '#ffffff']]) {
     ctx.lineWidth = lw; ctx.strokeStyle = c; ctx.beginPath();
     for (let i = 0; i <= g.N; i++) { const [x, y] = P(i % g.N); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }
@@ -269,16 +275,19 @@ function showScreen(name) {
 // ---------------- attract (background demo race) ----------------
 function cpuRacers(n, exclude = []) {
   const pool = CHARACTERS.filter(c => !exclude.includes(c.id));
+  // a mixed field: spread skills from weak to strong, shuffled across the grid
+  const skills = Array.from({ length: n }, (_, i) => 0.25 + 0.6 * (n > 1 ? i / (n - 1) : 0.5)).sort(() => Math.random() - 0.5);
   const out = [];
   for (let i = 0; i < n; i++) {
     const c = pool[i % pool.length];
-    out.push({ human: false, name: c.name, char: c.id, color: c.color, stats: c.stats, skill: 0.45 + Math.random() * 0.45 });
+    out.push({ human: false, name: c.name, char: c.id, color: c.color, stats: c.stats, skill: skills[i] });
   }
   return out;
 }
 
 function startAttract() {
   const tr = TRACKS[app.settings.track];
+  audio.bridge(3); // the rebuild blocks the page for a moment; queue enough music to cover it
   app.race = null;
   app.attract = new Race({ trackDef: tr, racers: cpuRacers(8), laps: 99, attract: true, seed: Date.now() & 0xffff });
   // spread the karts out along the track
@@ -362,7 +371,8 @@ function onRaceEvents(events) {
       case 'miniTurbo': if (vol > 0.05) audio.sfx('miniTurbo' + e.level, { volume: vol }); if (human) buzz(k, 20 + e.level * 15); break;
       case 'driftStart': if (human) audio.sfx('driftStart', { volume: 0.7 }); break;
       case 'hop': if (human) audio.sfx('hop', { volume: 0.5 }); break;
-      case 'pad': case 'nitro': case 'trickBoost': if (vol > 0.05) audio.sfx('boost', { volume: vol }); break;
+      case 'pad': if (vol > 0.05) audio.sfx('padZoom', { volume: vol * 0.7 }); break;
+      case 'nitro': case 'trickBoost': if (vol > 0.05) audio.sfx('boost', { volume: vol * 0.8 }); break;
       case 'trick': if (human) audio.sfx('hop', { pitch: 1.5 }); break;
       case 'hit': if (vol > 0.05) audio.sfx(e.kind === 'explosion' ? 'explosion' : 'spin', { volume: vol }); if (human) buzz(k, e.kind === 'explosion' ? 300 : 160); break;
       case 'shieldBlock': audio.sfx('shieldBlock', { volume: vol }); break;
@@ -436,7 +446,7 @@ function sendResults(p) {
   const st = app.lastResults;
   if (!st || !p.conn) return;
   const me = st.find(r => r.human && r.slot === p.slot);
-  p.conn.send({ t: 'results', place: me ? me.place : 0, time: me ? me.time : 0, standings: st.map(r => ({ name: r.name, char: r.char, time: r.estimated ? 0 : r.time })) });
+  p.conn.send({ t: 'results', isLeader: isLeader(p), place: me ? me.place : 0, time: me ? me.time : 0, standings: st.map(r => ({ name: r.name, char: r.char, time: r.estimated ? 0 : r.time })) });
 }
 
 function backToLobby() {
@@ -446,7 +456,7 @@ function backToLobby() {
   app.players = app.players.filter(p => p.connected);
   startAttract();
   showScreen('lobby');
-  focusFirst('#lobby');
+  document.activeElement?.blur?.();
   broadcast({ t: 'phase', phase: 'lobby' });
   broadcastLobby();
   renderLobby();
@@ -459,11 +469,13 @@ function nextTrack() {
 
 // ---------------- local input: keyboard & gamepads ----------------
 const keys = new Set();
-// Same diamond as the phones: up = hop, down = drift, left = boost/honk, right = item.
+// The laptop player ("Mac"): steer with A/D or ←/→. Same diamond as the phones:
+// up = hop, down = drift, left = boost/honk, right = item.
 const KB = {
-  kb1: { left: 'KeyA', right: 'KeyD', hop: 'KeyW', drift: 'KeyS', drift2: 'Space', boost: 'KeyQ', item: 'KeyE', shuffle: 'KeyR' },
-  kb2: { left: 'ArrowLeft', right: 'ArrowRight', hop: 'ArrowUp', drift: 'ArrowDown', drift2: 'Slash', boost: 'Comma', item: 'Period', shuffle: 'Quote' },
+  kb1: { left: ['KeyA', 'ArrowLeft'], right: ['KeyD', 'ArrowRight'], hop: ['KeyW', 'ArrowUp'], drift: ['KeyS', 'ArrowDown', 'Space'],
+    boost: ['KeyQ', 'Comma', 'ShiftLeft', 'ShiftRight'], item: ['KeyE', 'Period', 'Slash'], shuffle: ['KeyR'] },
 };
+const anyKey = (list) => list.some(c => keys.has(c));
 const BACK_KEYS = new Set(['Escape', 'Backspace', 'GoBack', 'BrowserBack']);
 const BACK_CODES = new Set([4, 8, 27, 166, 461, 10009]); // Android/TV remotes report Back with these keyCodes
 addEventListener('keydown', (e) => {
@@ -475,24 +487,21 @@ addEventListener('keydown', (e) => {
   const menuScreen = app.phase !== 'race' || app.paused;
   const arrow = e.code.startsWith('Arrow');
   // D-pad drives the on-screen buttons on menu screens (unless the arrow-keys player is in)
-  if (menuScreen && arrow && !(app.phase === 'lobby' && app.players.some(p => p.kind === 'kb2'))) {
+  if (menuScreen && arrow) {
     e.preventDefault(); spatialNav(e.code); return;
   }
   if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Slash'].includes(e.code)) e.preventDefault();
   if (e.repeat) return;
   keys.add(e.code);
   if (e.code === 'Enter' && !visibleButtons().includes(document.activeElement)) {
-    if (app.phase === 'lobby') startRace();
-    else if (app.phase === 'results') backToLobby();
+    // Enter on the laptop: first press joins as "Mac", the next one starts the race
+    if (app.phase === 'lobby') { if (!app.players.some(p => p.kind === 'kb1')) joinKeyboard('kb1'); else startRace(); }
+    else if (app.phase === 'results') nextTrack();
   }
   if (app.phase === 'lobby') {
-    if (e.code === 'Space' || e.code === 'KeyW') joinKeyboard('kb1');
-    if (e.code === 'Slash') joinKeyboard('kb2');
-    for (const kind of ['kb1', 'kb2']) {
-      const p = app.players.find(q => q.kind === kind);
-      if (!p) continue;
-      if (e.code === KB[kind].shuffle) cycleChar(p);
-    }
+    if (e.code === 'Space') joinKeyboard('kb1');
+    const p = app.players.find(q => q.kind === 'kb1');
+    if (p && KB.kb1.shuffle.includes(e.code)) cycleChar(p);
     if (e.code === 'BracketLeft') menuAction('left');
     if (e.code === 'BracketRight') menuAction('right');
   } else if (app.phase === 'race') {
@@ -522,10 +531,11 @@ function pollLocalInputs() {
   for (const p of app.players) {
     if (p.kind === 'kb1' || p.kind === 'kb2') {
       const m = KB[p.kind];
+      if (!m) continue;
       p.input = {
-        s: (keys.has(m.right) ? 1 : 0) - (keys.has(m.left) ? 1 : 0),
-        d: keys.has(m.drift) || keys.has(m.drift2) ? 1 : 0, u: keys.has(m.hop) ? 1 : 0,
-        l: keys.has(m.boost) ? 1 : 0, i: keys.has(m.item) ? 1 : 0, g: 0, b: 0,
+        s: (anyKey(m.right) ? 1 : 0) - (anyKey(m.left) ? 1 : 0),
+        d: anyKey(m.drift) ? 1 : 0, u: anyKey(m.hop) ? 1 : 0,
+        l: anyKey(m.boost) ? 1 : 0, i: anyKey(m.item) ? 1 : 0, g: 0, b: 0,
       };
     }
   }
@@ -659,7 +669,6 @@ async function boot() {
   $('#btn-start').addEventListener('click', () => startRace());
   $('#trk-prev').addEventListener('click', () => menuAction('left'));
   $('#trk-next').addEventListener('click', () => menuAction('right'));
-  $('#btn-laps').addEventListener('click', () => menuAction('laps'));
   $('#btn-cc').addEventListener('click', () => menuAction('cc'));
   $('#btn-cpu').addEventListener('click', () => menuAction('cpu'));
   $('#btn-lobby').addEventListener('click', () => backToLobby());
@@ -684,7 +693,6 @@ async function boot() {
   // test hook: auto-add keyboard players  (?kb=2)
   const kb = +params.get('kb') || 0;
   if (kb >= 1) joinKeyboard('kb1');
-  if (kb >= 2) joinKeyboard('kb2');
   for (let i = 0; i < (+params.get('fake') || 0); i++) addPlayer({ kind: 'fake', name: 'Bot ' + (app.players.length + 1) });
   if (params.get('autostart')) startRace();
 }

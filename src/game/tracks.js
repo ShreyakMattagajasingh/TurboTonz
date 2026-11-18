@@ -25,7 +25,7 @@ export const TRACKS = [
   },
   {
     id: 'desert',
-    name: 'Dune Canyon',
+    name: 'Dune Caniyan',
     theme: 'desert',
     music: 'desert',
     halfWidth: 10,
@@ -58,10 +58,10 @@ export const TRACKS = [
     gaps: [],
   },
   {
-    // The finale: climb onto a snowy plateau, launch off the cliff over the falls, glide to the far side.
-    id: 'snow',
+    // The finale: climb onto a green plateau, launch off the cliff over the falls, glide to the far side.
+    id: 'falls',
     name: 'Niyagara Falls',
-    theme: 'snow',
+    theme: 'falls',
     music: 'snow',
     halfWidth: 10,
     shoulder: 1.8,
@@ -74,7 +74,7 @@ export const TRACKS = [
     itemRows: [0.1, 0.33, 0.62, 0.84],
     boostPads: [{ u: 0.2, lat: 0.3, len: 8 }, { u: 0.36, lat: 0, len: 10 }, { u: 0.455, lat: 0, len: 8 }, { u: 0.74, lat: -0.3, len: 8 }],
     ramps: [],
-    ice: [{ u0: 0.66, u1: 0.71 }],
+    ice: [],
     // ~38 m chasm in the middle of the plateau straight (x ≈ 32 → -6), ~16 m above the river
     gaps: [{ u0: 0.487, u1: 0.531, power: 8.5 }],
   },

@@ -9,7 +9,13 @@ export function createResults(ctx) {
     $('#standings').innerHTML = '';
   }
 
+  // the leader picks what happens next: another race, or back to the lobby (scan / pick track)
+  $('#resNext').addEventListener('click', () => { ctx.haptic && ctx.haptic(30); ctx.send({ t: 'menu', a: 'next' }); });
+  $('#resLobby').addEventListener('click', () => { ctx.haptic && ctx.haptic(20); ctx.send({ t: 'menu', a: 'lobby' }); });
+
   function show(m) {
+    $('#resActions').hidden = !m.isLeader;
+    $('#resWait').style.visibility = m.isLeader ? 'hidden' : '';
     const place = m.place ?? 0;
     const medal = place === 1 ? '#ffd23f' : place === 2 ? '#d9e2ee' : place === 3 ? '#e69a58' : '#ff7eb6';
     const ph = $('#resPlace');

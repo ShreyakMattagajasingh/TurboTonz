@@ -37,7 +37,7 @@ export function roadTexture(theme) {
   return cached('road-' + theme, () => {
     const [c, ctx] = canvas(512, 512);
     const r = rng(11);
-    const base = { meadow: '#5b5f66', desert: '#7a6253', snow: '#4d5560', neon: '#16121f' }[theme];
+    const base = { meadow: '#5b5f66', desert: '#7a6253', snow: '#4d5560', neon: '#16121f', falls: '#585e64' }[theme];
     ctx.fillStyle = base; ctx.fillRect(0, 0, 512, 512);
     const sp = theme === 'neon' ? ['#241d33', '#0c0a12', '#2d2440'] : ['#6e737b', '#4a4d53', '#7c8189', '#3f4246'];
     speckle(ctx, 512, 512, 9000, theme === 'desert' ? ['#8a7060', '#6a5244', '#94796a'] : sp, 1, 3, r);
@@ -64,7 +64,7 @@ export function roadTexture(theme) {
 export function curbTexture(theme) {
   return cached('curb-' + theme, () => {
     const [c, ctx] = canvas(64, 256);
-    const cols = { meadow: ['#e8333a', '#fafafa'], desert: ['#e2762b', '#fff4dc'], snow: ['#2f7fe0', '#fafafa'], neon: ['#ff2fd0', '#22e9ff'] }[theme];
+    const cols = { meadow: ['#e8333a', '#fafafa'], desert: ['#e2762b', '#fff4dc'], snow: ['#2f7fe0', '#fafafa'], falls: ['#1f8fd8', '#fafafa'], neon: ['#ff2fd0', '#22e9ff'] }[theme];
     for (let i = 0; i < 4; i++) { ctx.fillStyle = cols[i % 2]; ctx.fillRect(0, i * 64, 64, 64); }
     ctx.fillStyle = 'rgba(0,0,0,0.18)'; ctx.fillRect(0, 0, 6, 256);
     return tex(c);
@@ -79,6 +79,7 @@ export function groundTexture(theme) {
       meadow: ['#5fb043', ['#6cc04c', '#4f9a37', '#7ccf58', '#57a83d', '#8fd866']],
       desert: ['#e6b874', ['#efc584', '#d9a862', '#f3cf96', '#c99a58']],
       snow: ['#eef4fb', ['#ffffff', '#dfe8f3', '#e7eef8', '#cfdcec']],
+      falls: ['#4aa23c', ['#58b447', '#3f8d33', '#69c252', '#37802e', '#7acd5e']],
       neon: ['#120f1d', ['#1a1528', '#0d0b15', '#1f1930']],
     }[theme];
     ctx.fillStyle = conf[0]; ctx.fillRect(0, 0, 512, 512);
@@ -90,7 +91,7 @@ export function groundTexture(theme) {
     }
     ctx.globalAlpha = 1;
     speckle(ctx, 512, 512, 14000, conf[1], 1, 3, r);
-    if (theme === 'meadow') {
+    if (theme === 'meadow' || theme === 'falls') {
       // grass blades
       for (let i = 0; i < 2500; i++) {
         ctx.strokeStyle = r() > 0.5 ? '#3f8a2b' : '#86d75e';

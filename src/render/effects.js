@@ -89,8 +89,8 @@ export class Effects {
     this.add = new Pool(scene, 5000, true);
     this.alpha = new Pool(scene, 4000, false);
     this.theme = theme;
-    this.dust = C({ meadow: '#a98c5f', desert: '#e8c088', snow: '#ffffff', neon: '#6a4bd6' }[theme] || '#aaa');
-    this.grass = C({ meadow: '#6ab34a', desert: '#d9a862', snow: '#f4f8ff', neon: '#3a2a66' }[theme] || '#888');
+    this.dust = C({ meadow: '#a98c5f', desert: '#e8c088', snow: '#ffffff', neon: '#6a4bd6', falls: '#9a7f55' }[theme] || '#aaa');
+    this.grass = C({ meadow: '#6ab34a', desert: '#d9a862', snow: '#f4f8ff', neon: '#3a2a66', falls: '#5cb84a' }[theme] || '#888');
     this.rings = [];
     this.scene = scene;
     this.ringGeo = new THREE.RingGeometry(0.8, 1.2, 32).rotateX(-Math.PI / 2);

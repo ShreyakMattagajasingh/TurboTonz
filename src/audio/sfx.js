@@ -181,6 +181,12 @@ export const SFX = {
     });
     return 0.5;
   },
+  padZoom(h) {
+    // soft, airy swoosh for driving over a boost strip (the big 'boost' sound is for items)
+    h.noise({ ftype: 'bandpass', f: 500, f2: 1600, q: 1.2, dur: 0.45, vol: 0.16, a: 0.04 });
+    h.tone({ type: 'sine', f: N('e5'), f2: N('b5'), dur: 0.22, vol: 0.07, a: 0.02 });
+    return 0.5;
+  },
   honk(h) {
     // two-tone party horn
     h.tone({ type: 'square', f: N('e4'), dur: 0.16, vol: 0.2, lp: 2200, sustain: true });

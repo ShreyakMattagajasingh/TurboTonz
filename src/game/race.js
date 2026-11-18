@@ -284,7 +284,9 @@ export class Race {
     const humans = this.humans();
     const allHumansDone = humans.length > 0 && humans.every(k => k.finished);
     const allDone = this.karts.every(k => k.finished);
-    const timeout = this.firstHumanFinish >= 0 && this.time - this.firstHumanFinish > 30;
+    // the race ends when every human has crossed the line (CPUs don't hold it up);
+    // a 2-minute safety net only kicks in if someone is somehow never going to finish
+    const timeout = this.firstHumanFinish >= 0 && this.time - this.firstHumanFinish > 120;
     if (allHumansDone || allDone || timeout) {
       this.doneT += dt;
       if (this.doneT > (allDone ? 1.5 : 3.5) || timeout) {
@@ -311,9 +313,11 @@ export class Race {
     if (humans.length && !k.finished) {
       const ref = Math.max(...humans.map(h => h.prog));
       const gap = (k.prog - ref) * g.length; // meters ahead (+) / behind (-)
-      ai.rb = gap > 0 ? Math.max(0.86, 1 - gap / 900) : Math.min(1.12, 1 - gap / 1100);
-      ai.rb *= 0.94 + 0.08 * ai.skill;
-    } else ai.rb = k.finished ? 0.8 : 0.97;
+      // CPUs drive at the speed class you picked, never faster. If they pull away from the
+      // humans they ease off; weaker CPUs are a touch slower so the pack mixes up.
+      ai.rb = gap > 0 ? Math.max(0.84, 1 - gap / 600) : 1;
+      ai.rb *= 0.93 + 0.07 * ai.skill;
+    } else ai.rb = k.finished ? 0.8 : 0.95;
 
     ai.laneT -= dt;
     if (ai.laneT <= 0) { ai.lane = (this.rnd() * 2 - 1) * 0.45; ai.laneT = 2 + this.rnd() * 4; }
@@ -334,6 +338,9 @@ export class Race {
         }
       }
     }
+    // weaker CPUs wobble off the racing line now and then
+    ai.wob = (ai.wob || 0) + dt;
+    lane += Math.sin(ai.wob * (0.7 + k.id * 0.13)) * 0.25 * (1 - ai.skill);
     lane = Math.max(-0.55, Math.min(0.55, lane));
     const tp = g.pointAt(ts, lane * g.w[g.wrap(Math.floor(ts))], this._tp || (this._tp = {}));
     const want = Math.atan2(tp.x - k.x, tp.z - k.z);

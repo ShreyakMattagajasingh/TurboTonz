@@ -91,8 +91,7 @@
               <div class="track-name"><small>TRACK</small><b id="trackName">--</b></div>
               <button class="btn btn-sm btn-arrow" id="trackNext" type="button" aria-label="Next track">▶</button>
             </div>
-            <div class="row three">
-              <button class="btn btn-sm btn-opt" id="lapsBtn" type="button"><small>LAPS</small><b id="lapsVal">3</b></button>
+            <div class="row two">
               <button class="btn btn-sm btn-opt btn-cc" id="ccBtn" type="button"><small>SPEED</small><b id="ccVal">150cc</b></button>
               <button class="btn btn-sm btn-opt" id="cpuBtn" type="button"><small>CPUS</small><b id="cpuVal">ON</b></button>
             </div>
@@ -180,7 +179,11 @@
         <div class="res-label" id="resLabel">YOU FINISHED</div>
         <div class="res-place" id="resPlace"><b>-</b><sup></sup></div>
         <div class="res-time" id="resTime">--:--.---</div>
-        <div class="res-wait" id="resWait">Waiting for host<span class="dots"><i>.</i><i>.</i><i>.</i></span></div>
+        <div class="res-wait" id="resWait">Waiting for the leader<span class="dots"><i>.</i><i>.</i><i>.</i></span></div>
+        <div class="res-actions" id="resActions" hidden>
+          <button class="btn btn-start" id="resNext" type="button">NEXT RACE</button>
+          <button class="btn btn-ready" id="resLobby" type="button">LOBBY</button>
+        </div>
       </div>
       <div class="res-list-wrap">
         <h2 class="sect">STANDINGS</h2>
