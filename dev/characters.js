@@ -97,7 +97,7 @@ const statLines = karts.map((k) => {
 console.log(statLines.join(' | '));
 
 // --- states ----------------------------------------------------------------
-const STATES = ['idle', 'drive', 'steer', 'drift', 'boost', 'spin', 'mega', 'shield', 'squash', 'finished', 'cycle'];
+const STATES = ['idle', 'drive', 'steer', 'drift', 'boost', 'spin', 'mega', 'shield', 'squash', 'finished', 'glide', 'rescued', 'cycle'];
 function stateFor(name, t, i) {
   const s = { speed: 0, speedMax: 25, steer: 0, drift: 0, driftLevel: 0, boosting: false, airborne: false, spin: 0, squash: 0, mega: false, shield: false, finished: false, lean: 0 };
   switch (name) {
@@ -111,12 +111,16 @@ function stateFor(name, t, i) {
     case 'shield': s.speed = 16; s.shield = true; break;
     case 'squash': { const p = (t % 2) / 2; s.squash = p < 0.6 ? 1 - p / 0.6 : 0; s.speed = 4; break; }
     case 'finished': s.speed = 6; s.finished = true; break;
+    case 'glide': s.speed = 22; s.gliding = true; s.airborne = true; s.steer = Math.sin(t * 0.8 + i) * 0.5; break;
+    case 'glidepop': s.speed = 22; s.gliding = (t % 2.4) < 1.6; s.airborne = s.gliding; break;
+    case 'rescued': s.speed = 0; s.rescued = true; break;
+    case 'lean': s.speed = 20; s.steer = 1; break;
     // fixed poses for screenshots
     case 'squashhold': s.squash = 0.8; break;
     case 'spinhold': s.speed = 6; s.spin = 2.2; break;
     case 'drifthold': s.speed = 20; s.steer = -0.9; s.drift = -1; s.driftLevel = 2; break;
     case 'cycle': {
-      const seq = ['drive', 'steer', 'drift', 'boost', 'spin', 'mega', 'shield', 'squash', 'finished'];
+      const seq = ['drive', 'steer', 'drift', 'boost', 'spin', 'mega', 'shield', 'squash', 'finished', 'glide'];
       return stateFor(seq[Math.floor(t / 3) % seq.length], t, i);
     }
   }

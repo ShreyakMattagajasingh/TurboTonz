@@ -162,3 +162,36 @@ kbd { display: inline-block; min-width: 22px; padding: 1px 6px; margin: 0 1px; b
 .results-actions { display: flex; gap: 12px; margin-top: 16px; }
 .results-actions .start { flex: 1; margin: 0; }
 @keyframes slide-in { from { transform: translateX(40px); opacity: 0; } to { transform: none; opacity: 1; } }
+
+/* ---------------- item reel ---------------- */
+.hud-item-icon { overflow: hidden; position: relative; }
+.hud-item-icon .reel { width: 100%; height: 100%; will-change: transform; }
+.hud-item-icon .reel .cell { width: 100%; height: 100%; display: grid; place-items: center; }
+.hud-item-icon .reel .cell svg { width: 100%; height: 100%; }
+.hud-item.rolling { border-color: #7fe9ff; box-shadow: 0 0 calc(22px * var(--s)) rgba(127,233,255,.8), 0 calc(4px * var(--s)) 0 rgba(0,0,0,.35); }
+.hud-item.rolling .hud-item-icon { filter: none; transform: none; -webkit-mask: linear-gradient(180deg, transparent, #000 22%, #000 78%, transparent); mask: linear-gradient(180deg, transparent, #000 22%, #000 78%, transparent); }
+
+/* ---------------- start lights drone ---------------- */
+.hud-lights { position: absolute; left: 50%; top: 0; width: calc(190px * var(--s)); transform: translate(-50%, -120%); transition: transform .55s cubic-bezier(.3,1.4,.5,1); pointer-events: none; filter: drop-shadow(0 calc(6px * var(--s)) 0 rgba(0,0,0,.35)); }
+.hud-lights.show { transform: translate(-50%, calc(8px * var(--s))); animation: hover-bob 1.2s ease-in-out infinite; }
+.hud-lights svg { width: 100%; display: block; }
+.hud-lights .lamp { fill: #3a1420; stroke: #0d0820; stroke-width: 3; transition: fill .12s; }
+.hud-lights .rotor { transform-origin: 100px 11px; animation: rotor .12s linear infinite; }
+.hud-lights.lit1 .l1, .hud-lights.lit2 .l1, .hud-lights.lit2 .l2, .hud-lights.lit3 .lamp { fill: #ff3048; filter: drop-shadow(0 0 6px #ff3048); }
+.hud-lights.lit4 .lamp { fill: #3dff7a; filter: drop-shadow(0 0 8px #3dff7a); }
+@keyframes hover-bob { 50% { margin-top: calc(5px * var(--s)); } }
+@keyframes rotor { 50% { transform: scaleX(.35); } }
+.hud-grid { position: absolute; left: 50%; bottom: 14%; transform: translateX(-50%) scale(.8); opacity: 0; transition: opacity .3s, transform .3s; white-space: nowrap; font-size: calc(30px * var(--s)); color: #fff; padding: calc(6px * var(--s)) calc(20px * var(--s)); border-radius: 99px; background: color-mix(in srgb, var(--pc) 70%, #000); -webkit-text-stroke: calc(4px * var(--s)) rgba(0,0,0,.6); paint-order: stroke fill; box-shadow: 0 calc(5px * var(--s)) 0 rgba(0,0,0,.35); }
+.hud-grid.show { opacity: 1; transform: translateX(-50%) scale(1); }
+
+/* ---------------- banners ---------------- */
+.hud-banner.good { color: #4dff8a; }
+.hud-banner.bad { color: #ff5a5a; animation: shake .4s ease-in-out 2; }
+.hud-banner.info { color: #7fe9ff; font-size: calc(40px * var(--s)); }
+.hud-banner.falls { color: #bfe9ff; font-size: calc(70px * var(--s)); top: 14%; -webkit-text-stroke: calc(7px * var(--s)) #0b3a6b; letter-spacing: 1px; }
+
+/* ---------------- sound gate + remote focus ---------------- */
+.sound-gate { position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%); z-index: 40; border: 2px solid rgba(255,210,63,.7); border-radius: 99px; padding: 10px 20px; background: rgba(18,12,44,.88); color: #fff; font-weight: 800; font-size: 16px; backdrop-filter: blur(8px); animation: breathe 2.2s ease-in-out infinite; }
+.sound-gate b { color: var(--gold); }
+.sound-gate.hide { display: none; }
+#lobby button:focus-visible, #results button:focus-visible, #pause button:focus-visible { outline: 4px solid var(--gold); outline-offset: 3px; box-shadow: 0 0 0 8px rgba(255,210,63,.25); }

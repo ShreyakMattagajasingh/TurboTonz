@@ -181,6 +181,33 @@ export const SFX = {
     });
     return 0.5;
   },
+  honk(h) {
+    // two-tone party horn
+    h.tone({ type: 'square', f: N('e4'), dur: 0.16, vol: 0.2, lp: 2200, sustain: true });
+    h.tone({ type: 'square', f: N('g#4'), dur: 0.16, vol: 0.16, lp: 2200, sustain: true });
+    h.tone({ type: 'square', f: N('e4'), dur: 0.22, vol: 0.2, lp: 2200, sustain: true, at: 0.2 });
+    h.tone({ type: 'square', f: N('b4'), dur: 0.22, vol: 0.16, lp: 2200, sustain: true, at: 0.2 });
+    return 0.5;
+  },
+  rescue(h) {
+    // drone whirr + friendly chirp
+    h.noise({ ftype: 'bandpass', f: 900, f2: 1400, q: 4, dur: 0.9, vol: 0.12 });
+    h.tone({ type: 'sawtooth', f: 180, f2: 240, dur: 0.9, vol: 0.06, lp: 900 });
+    ['c6', 'g6', 'e6'].forEach((n, i) => h.tone({ type: 'triangle', f: N(n), dur: 0.1, vol: 0.18, at: 0.15 + i * 0.09 }));
+    return 1.0;
+  },
+  glide(h) {
+    // whoosh off the cliff + the glider popping open
+    h.noise({ ftype: 'bandpass', f: 400, f2: 2400, q: 0.8, dur: 0.8, vol: 0.22 });
+    h.tone({ type: 'triangle', f: N('g5'), f2: N('g6'), dur: 0.25, vol: 0.14, at: 0.12 });
+    h.bell({ f: N('d7'), vol: 0.1, dur: 0.5, at: 0.3 });
+    return 1.0;
+  },
+  land(h) {
+    h.noise({ ftype: 'lowpass', f: 600, f2: 200, dur: 0.2, vol: 0.25 });
+    h.tone({ type: 'sine', f: 120, f2: 60, dur: 0.18, vol: 0.25 });
+    return 0.3;
+  },
   uiMove(h) {
     h.tone({ type: 'triangle', f: 880, f2: 760, dur: 0.045, vol: 0.2 });
     return 0.1;

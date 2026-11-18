@@ -1,4 +1,4 @@
-# Party Karts — module contracts
+# Turbo Tonz — module contracts
 
 An ORIGINAL arcade kart racer (no Nintendo/Mario names, characters, art, music or tracks).
 Laptop = host screen (split-screen, up to 8 humans + CPU fill). Phones = controllers via WebRTC (PeerJS).
@@ -49,24 +49,25 @@ Music: original upbeat chiptune/funk loops (sequenced in code: drums, bass, chor
 Room code: 4 letters. Pad URL: `/pad.html?room=ABCD` (+ `&local=1` to use BroadcastChannel transport for tests).
 
 Pad → Host:
-- `{ t:'hello', pid, name }` — pid persisted in localStorage (`pk_pid`) so reconnects reclaim the slot.
-- `{ t:'pick', char }` — character id.
+- `{ t:'hello', pid, name }`: pid persisted in localStorage (`pk_pid`) so reconnects reclaim the slot.
+- `{ t:'name', name }`: rename your racer (≤ 12 chars).
+- `{ t:'shuffle' }`: ask for a different random racer (3 per player).
 - `{ t:'ready', ready: bool }`
-- `{ t:'in', s, g, b, d, i, seq }` — steer -1..1, gas 0/1, brake 0/1, drift(hop) 0/1, item 0/1 (held state). Send at ~30 Hz while racing + on change.
-- `{ t:'menu', a }` — lobby nav for the first player: `'left'|'right'|'start'|'laps'|'cpu'`.
+- `{ t:'in', s, d, i, l, u, seq }`: s steer -1..1, d DRIFT (▼), i ITEM (▶), l BOOST/HONK (◀), u HOP (▲), held 0/1. Sent at 30 Hz while racing and on change.
+- `{ t:'menu', a }`: leader only: `'left'|'right'` (track), `'laps'|'cc'|'cpu'|'start'`.
 - `{ t:'ping', ts }`
 
 Host → Pad:
 - `{ t:'welcome', slot, color, name }`
-- `{ t:'lobby', players:[{slot,name,char,ready,color}], track, trackName, laps, isLeader, taken:[charIds] }`
-- `{ t:'phase', phase }` — `'lobby'|'countdown'|'race'|'results'`
-- `{ t:'hud', place, total, lap, laps, item, itemSpin, speed, finished }` — ~6 Hz; `item` is an item id or null.
-- `{ t:'buzz', ms }` — vibrate.
-- `{ t:'results', place, time, standings:[{name, char, time}] }`
-- `{ t:'pong', ts }`
-- `{ t:'full' }` — room full.
+- `{ t:'lobby', players:[{slot,name,char,ready,color}], track, trackName, laps, cc /*50|150|200*/, cpu, isLeader, myChar, shufflesLeft }`
+- `{ t:'phase', phase }`: `'lobby'|'countdown'|'race'|'results'`
+- `{ t:'count', n }`: 3, 2, 1 as each number appears; 0 = GO.
+- `{ t:'hud', place, total, lap, laps, item, charges, rolling, finished, wrong }`: ~6 Hz.
+- `{ t:'itemRoll', item, dur }`: the reel lands on `item` after `dur` s.
+- `{ t:'flash', text, kind }`: big message; kind `'good'|'bad'|'info'`.
+- `{ t:'buzz', ms }`, `{ t:'results', place, time, standings }`, `{ t:'pong', ts }`, `{ t:'full' }`.
 
-Item ids: `nitro`, `triple_nitro`, `oil`, `bouncer`, `triple_bouncer`, `rocket`, `shield`, `mega`, `zap`.
+Items in rotation: `nitro`, `oil`, `bouncer`, `rocket`, `mega` (the rest of the old ids still work if forced).
 
 ## 4. Pad (controller) — `pad.html`, `src/pad/main.js`, `src/pad/pad.css`
 

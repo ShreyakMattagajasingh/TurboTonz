@@ -1,24 +1,13 @@
-// Lobby screen: player banner, character grid, ready toggle, leader controls.
-import { $, esc, haptic, toast } from './common.js';
+// Lobby screen: your auto-assigned racer (one shuffle), racer-name edit, ready toggle, leader race setup.
+import { $, esc, haptic, store } from './common.js';
 import { chars, faceHTML } from './chars.js';
 
 export function createLobby(ctx) {
-  const grid = $('#charGrid');
   const players = $('#players');
   let last = null;      // last lobby message
   let myChar = null;
   let ready = false;
-
-  const slotLabel = (slot) => 'P' + ((slot ?? 0) + 1);
-
-  function buildGrid() {
-    grid.innerHTML = chars.list.map((c) => `
-      <button class="char" type="button" data-id="${esc(c.id)}" style="--cc:${esc(c.color || '#888')}">
-        <div class="ph">${faceHTML(c)}</div>
-        <span class="nm">${esc(c.name)}</span>
-      </button>`).join('');
-    if (last) update(last);
-  }
+  let editing = false;
 
   function me() {
     if (!last || !last.players) return null;
@@ -35,21 +24,25 @@ export function createLobby(ctx) {
     const color = (me() && me().color) || ctx.state.color || '#ffd23f';
     document.documentElement.style.setProperty('--pc', color);
     $('#meSlot').textContent = ctx.state.slot != null ? ctx.state.slot + 1 : '?';
-    $('#meName').textContent = (me() && me().name) || ctx.state.name || 'Player';
-    const c = chars.byId(myChar);
-    $('#meSub').textContent = c ? `${c.name} the ${c.species || 'racer'}` : 'Pick your racer';
-    $('#meChar').innerHTML = c ? faceHTML(c) : '<span>❓</span>';
+    if (!editing) $('#meName').textContent = (me() && me().name) || ctx.state.name || 'Player';
   }
 
-  function renderStats() {
+  function renderRacer() {
     const c = chars.byId(myChar);
-    const el = $('#charStats');
-    if (!c || !c.stats) { el.innerHTML = ''; return; }
-    const rows = [['SPEED', 'speed'], ['ACCEL', 'accel'], ['HANDLE', 'handling'], ['WEIGHT', 'weight']];
-    el.innerHTML = rows.map(([l, k]) => {
-      const v = Math.max(0, Math.min(1, +c.stats[k] || 0));
-      return `<div class="stat"><span>${l}</span><div class="bar"><i style="width:${Math.round(v * 100)}%"></i></div></div>`;
-    }).join('');
+    $('#rcFace').innerHTML = c ? faceHTML(c) : '<span>❓</span>';
+    $('#rcFace').style.setProperty('--cc', (c && c.color) || '#555');
+    $('#rcChar').textContent = c ? c.name : 'Finding your racer…';
+    $('#rcTag').textContent = c ? (c.tagline || (c.species ? `The ${c.species}` : '')) : '';
+    const chips = [];
+    if (c && c.vehicleLabel) chips.push(`<span class="rchip veh">🏎️ ${esc(c.vehicleLabel)}</span>`);
+    else if (c && c.vehicle) chips.push(`<span class="rchip veh">🏎️ ${esc(String(c.vehicle).toUpperCase())}</span>`);
+    if (c && c.gliderLabel) chips.push(`<span class="rchip gl">🪂 ${esc(c.gliderLabel)}</span>`);
+    else if (c && c.glider) chips.push(`<span class="rchip gl">🪂 ${esc(String(c.glider).toUpperCase())}</span>`);
+    $('#rcChips').innerHTML = chips.join('');
+    const left = last && last.shufflesLeft != null ? +last.shufflesLeft : null;
+    const sb = $('#shuffleBtn');
+    sb.disabled = left === 0 || ready;
+    $('#shuffleLeft').textContent = left == null ? '' : `${left} left`;
   }
 
   function renderPlayers(list) {
@@ -61,85 +54,92 @@ export function createLobby(ctx) {
       return `<li class="${isMe ? 'me' : ''}">
         <div class="pdot" style="--c:${esc(p.color || '#888')}">${c ? faceHTML(c) : `<span>${p.slot + 1}</span>`}</div>
         <span class="pn">${esc(p.name || 'Player')}${isMe ? ' (you)' : ''}</span>
-        <span class="ps ${p.ready ? 'rdy' : ''}">${p.ready ? 'READY' : (c ? esc(c.name) : 'picking…')}</span>
+        <span class="ps ${p.ready ? 'rdy' : ''}">${p.ready ? 'READY' : (c ? esc(c.name) : '…')}</span>
       </li>`;
     }).join('');
   }
 
   function update(m) {
     last = m;
-    const list = m.players || [];
     const mine = me();
-    if (mine) {
-      if (mine.char) myChar = mine.char;
-      ready = !!mine.ready;
-    }
-    // character cards
-    const owners = new Map();
-    list.forEach((p) => { if (p.char && p.slot !== ctx.state.slot) owners.set(p.char, p); });
-    (m.taken || []).forEach((id) => { if (id !== myChar && !owners.has(id)) owners.set(id, { slot: -1, color: '#555' }); });
-    grid.querySelectorAll('.char').forEach((el) => {
-      const id = el.dataset.id;
-      const o = owners.get(id);
-      el.classList.toggle('taken', !!o);
-      el.classList.toggle('sel', id === myChar);
-      if (o) { el.dataset.owner = o.slot >= 0 ? slotLabel(o.slot) : '✖'; el.style.setProperty('--oc', o.color || '#555'); }
-      else delete el.dataset.owner;
-    });
+    if (m.myChar) myChar = m.myChar;
+    else if (mine && mine.char) myChar = mine.char;
+    if (mine) ready = !!mine.ready;
     renderBanner();
-    renderStats();
-    renderPlayers(list);
+    renderRacer();
+    renderPlayers(m.players || []);
     setReadyUI();
 
-    // leader panel
     const leader = !!m.isLeader;
     $('#leaderPanel').hidden = !leader;
     $('#startBtn').hidden = !leader;
     if (leader) {
       $('#trackName').textContent = m.trackName || m.track || '--';
       $('#lapsVal').textContent = m.laps ?? '-';
+      $('#ccVal').textContent = m.cc ? m.cc + 'cc' : '150cc';
       const cpu = m.cpu;
-      const cv = $('#cpuVal');
-      if (cpu === undefined || cpu === null) cv.textContent = 'TAP';
-      else cv.textContent = cpu === true ? 'ON' : cpu === false || cpu === 0 ? 'OFF' : String(cpu);
+      $('#cpuVal').textContent = cpu === true ? 'ON' : cpu === false || cpu === 0 ? 'OFF' : cpu == null ? '—' : String(cpu);
       $('#cpuBtn').classList.toggle('on', !!cpu);
     }
   }
 
-  // --- interactions ---
-  grid.addEventListener('click', (e) => {
-    const el = e.target.closest('.char');
-    if (!el || el.classList.contains('taken')) return;
-    const id = el.dataset.id;
-    myChar = id;
-    haptic(15);
-    ctx.send({ t: 'pick', char: id });
-    grid.querySelectorAll('.char').forEach((n) => n.classList.toggle('sel', n.dataset.id === id));
-    renderBanner();
-    renderStats();
+  /* --- racer name edit --- */
+  const form = $('#nameForm'), input = $('#nameEditInput');
+  function openEdit() {
+    editing = true;
+    input.value = (me() && me().name) || ctx.state.name || '';
+    $('#nameRow').hidden = true; form.hidden = false;
+    input.focus(); input.select();
+    haptic(10);
+  }
+  function closeEdit() { editing = false; form.hidden = true; $('#nameRow').hidden = false; renderBanner(); }
+  $('#nameEdit').addEventListener('click', openEdit);
+  $('#meName').addEventListener('click', openEdit);
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const name = input.value.replace(/\s+/g, ' ').trim().slice(0, 12);
+    if (name) {
+      ctx.state.name = name;
+      store.set('pk_name', name);
+      ctx.send({ t: 'name', name });
+      $('#meName').textContent = name;
+      haptic([15, 20, 25]);
+    }
+    input.blur();
+    closeEdit();
+  });
+  input.addEventListener('blur', () => setTimeout(() => { if (editing) form.requestSubmit ? form.requestSubmit() : closeEdit(); }, 120));
+
+  /* --- interactions --- */
+  $('#shuffleBtn').addEventListener('click', () => {
+    if ($('#shuffleBtn').disabled) return;
+    haptic([10, 20, 10, 20]);
+    const f = $('#rcFace');
+    f.classList.remove('roll'); void f.offsetWidth; f.classList.add('roll');
+    ctx.send({ t: 'shuffle' });
   });
 
   $('#readyBtn').addEventListener('click', () => {
-    if (!myChar && !ready) { toast('Pick a racer first!'); haptic([30, 40, 30]); return; }
     ready = !ready;
     haptic(ready ? [20, 30, 40] : 15);
     ctx.send({ t: 'ready', ready });
     setReadyUI();
+    renderRacer();
   });
 
   const menu = (a) => () => { haptic(18); ctx.send({ t: 'menu', a }); };
   $('#trackPrev').addEventListener('click', menu('left'));
   $('#trackNext').addEventListener('click', menu('right'));
   $('#lapsBtn').addEventListener('click', menu('laps'));
+  $('#ccBtn').addEventListener('click', menu('cc'));
   $('#cpuBtn').addEventListener('click', menu('cpu'));
   $('#startBtn').addEventListener('click', () => { haptic([30, 30, 60]); ctx.send({ t: 'menu', a: 'start' }); });
 
-  buildGrid();
-  chars.ready.then(buildGrid);
+  chars.ready.then(() => { renderRacer(); if (last) renderPlayers(last.players || []); });
 
   return {
     update,
-    refresh: renderBanner,
-    reset() { ready = false; setReadyUI(); },
+    refresh: () => { renderBanner(); renderRacer(); },
+    reset() { ready = false; setReadyUI(); renderRacer(); },
   };
 }

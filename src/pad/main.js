@@ -1,4 +1,4 @@
-// Party Karts pad — entry point: join flow, connection (auto-reconnect), screen routing.
+// Turbo Tonz pad — entry point: join flow, connection (auto-reconnect), screen routing.
 import { joinHost, isLocalMode } from '../net/transport.js';
 import { $, store, haptic, toast } from './common.js';
 import { chars } from './chars.js';
@@ -180,6 +180,11 @@ function applyPhase(phase) {
 
 function onMsg(c, m) {
   if (c !== conn || !m || typeof m !== 'object') return;
+  handleMsg(m);
+}
+
+function handleMsg(m) {
+  if (!m || typeof m !== 'object') return;
   switch (m.t) {
     case 'welcome':
       everWelcomed = true;
@@ -198,6 +203,12 @@ function onMsg(c, m) {
       break;
     case 'phase': applyPhase(m.phase); break;
     case 'hud': race.hud(m); break;
+    case 'count':
+      if (state.screen !== 'race') { race.start('countdown'); showScreen('race'); }
+      race.count(+m.n || 0);
+      break;
+    case 'itemRoll': race.rollReel(m.item, +m.dur || 1.3); break;
+    case 'flash': race.flash(m.text, m.kind); break;
     case 'buzz': haptic(Math.max(1, Math.min(2000, +m.ms || 60))); break;
     case 'results':
       race.stop(); results.show(m); showScreen('results'); $('#resWait').hidden = false;
@@ -291,4 +302,4 @@ $('#leaveBtn').addEventListener('click', () => {
 
 showScreen('join');
 setNet('idle');
-window.__pad = { state, send, get conn() { return conn; }, race, lobby, showScreen };
+window.__pad = { state, send, get conn() { return conn; }, race, lobby, showScreen, handleMsg, applyPhase };

@@ -1,4 +1,4 @@
-// Party Karts — procedural characters & karts.
+// Turbo Tonz — procedural characters & karts.
 // All 8 drivers are original designs built from three.js primitives.
 // Static parts are merged per node & per material (vertex colours), so a full
 // kart is ~30 draw calls and ~3.4-3.7k triangles at lod 0 (~2.6-3k at lod 1).
@@ -18,50 +18,58 @@ import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 export const CHARACTERS = [
   {
     id: 'pip', name: 'Pip', species: 'fox', number: 1,
+    vehicle: 'car', vehicleLabel: 'Sports Car', glider: 'paraglider', gliderLabel: 'Paraglider', twoWheel: false,
     color: '#ff7a1a', accent: '#ffffff',
-    tagline: 'Quick-witted fox with goggles and a lead foot.',
+    tagline: 'Quick-witted fox in a low-slung sports car. Lead foot, goggles on.',
     stats: { speed: 0.6, accel: 0.7, handling: 0.7, weight: 0.4 },
   },
   {
     id: 'bao', name: 'Bao', species: 'panda', number: 2,
+    vehicle: 'buggy', vehicleLabel: 'Monster Buggy', glider: 'parachute', gliderLabel: 'Parachute', twoWheel: false,
     color: '#e8394a', accent: '#2a2a33',
-    tagline: 'Laid-back panda heavyweight. Hard to push around.',
+    tagline: 'Laid-back panda in a monster buggy. Hard to push around.',
     stats: { speed: 0.85, accel: 0.35, handling: 0.45, weight: 0.95 },
   },
   {
     id: 'lily', name: 'Lily', species: 'frog', number: 3,
+    vehicle: 'kart', vehicleLabel: 'Classic Kart', glider: 'umbrella', gliderLabel: 'Lily Umbrella', twoWheel: false,
     color: '#2fbf5a', accent: '#ff8fc8',
-    tagline: 'Bouncy tree frog who hops into every corner.',
+    tagline: 'Bouncy tree frog in a classic kart, hops into every corner.',
     stats: { speed: 0.45, accel: 0.85, handling: 0.85, weight: 0.3 },
   },
   {
     id: 'sprocket', name: 'Sprocket', species: 'robot', number: 4,
+    vehicle: 'hover', vehicleLabel: 'Hover Pod', glider: 'copter', gliderLabel: 'Heli-Copter', twoWheel: false,
     color: '#2f8bff', accent: '#ffb000',
-    tagline: 'Pocket-sized robot running on pure top speed.',
+    tagline: 'Pocket-sized robot floating on a hover pod.',
     stats: { speed: 0.9, accel: 0.45, handling: 0.45, weight: 0.75 },
   },
   {
     id: 'pebble', name: 'Pebble', species: 'penguin', number: 5,
+    vehicle: 'sled', vehicleLabel: 'Turbo Sled', glider: 'kite', gliderLabel: 'Box Kite', twoWheel: false,
     color: '#ffd23f', accent: '#2b59d9',
-    tagline: 'Penguin in a bobble hat. Slides through turns like ice.',
+    tagline: 'Penguin in a bobble hat on a turbo snow sled.',
     stats: { speed: 0.55, accel: 0.65, handling: 0.9, weight: 0.35 },
   },
   {
     id: 'rory', name: 'Rory', species: 'dino', number: 6,
+    vehicle: 'bike', vehicleLabel: 'Moto Bike', glider: 'wings', gliderLabel: 'Bat Wings', twoWheel: true,
     color: '#8a4dff', accent: '#ffb13b',
-    tagline: 'Baby dino with tiny arms and a big engine.',
+    tagline: 'Baby dino with tiny arms on a big moto bike.',
     stats: { speed: 0.75, accel: 0.5, handling: 0.55, weight: 0.8 },
   },
   {
     id: 'nova', name: 'Nova', species: 'cat', number: 7,
+    vehicle: 'trike', vehicleLabel: 'Space Trike', glider: 'balloon', gliderLabel: 'Party Balloons', twoWheel: false,
     color: '#ff4fa3', accent: '#e9f1ff',
-    tagline: 'Space cat astronaut. Perfectly balanced, like orbit.',
+    tagline: 'Space cat astronaut cruising a three-wheel space trike.',
     stats: { speed: 0.7, accel: 0.6, handling: 0.65, weight: 0.5 },
   },
   {
     id: 'mochi', name: 'Mochi', species: 'bunny', number: 8,
+    vehicle: 'scooter', vehicleLabel: 'Scooter', glider: 'hangglider', gliderLabel: 'Hang Glider', twoWheel: true,
     color: '#2fd3c0', accent: '#ff7aa8',
-    tagline: 'Tiny bunny, enormous acceleration.',
+    tagline: 'Tiny bunny on a zippy scooter, carrot basket included.',
     stats: { speed: 0.4, accel: 0.95, handling: 0.75, weight: 0.2 },
   },
 ];
@@ -305,6 +313,7 @@ function resolveMat(key, ch, paintHex) {
     case 'metal': return mat('metal', () => new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.28, metalness: 0.65 }));
     case 'glow': return mat('glow', () => new THREE.MeshBasicMaterial({ vertexColors: true }));
     case 'paint': return paintMat(paintHex || ch.color);
+    case 'cloth': return mat('cloth', () => new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.7, metalness: 0, side: THREE.DoubleSide }));
     case 'decal': return mat('decal:' + ch.id, () => new THREE.MeshStandardMaterial({
       map: decalTexture(ch), transparent: true, alphaTest: 0.35, roughness: 0.35,
       polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2,
@@ -449,6 +458,17 @@ function buildWheel(ch, W, q) {
   // outer face (+X): coloured hex hubcap + centre cap (hex shape makes the spin readable)
   P.add(G.cyl(6), 'gloss', ch.color, [half * 0.88, 0, 0], [0, 0, PI / 2], [rimR * 0.82, 0.05, rimR * 0.82]);
   P.add(G.cyl(5), 'gloss', ch.accent === WHITE ? '#ffd23f' : ch.accent, [half * 0.95 + 0.025, 0, 0], [0, 0, PI / 2], [rimR * 0.32, 0.05, rimR * 0.32]);
+  if (W.both) { // centre-line wheels (bikes) are seen from both sides
+    P.add(G.cyl(6), 'gloss', ch.color, [-half * 0.88, 0, 0], [0, 0, PI / 2], [rimR * 0.82, 0.05, rimR * 0.82]);
+    P.add(G.cyl(5), 'gloss', ch.accent === WHITE ? '#ffd23f' : ch.accent, [-half * 0.95 - 0.025, 0, 0], [0, 0, PI / 2], [rimR * 0.32, 0.05, rimR * 0.32]);
+  }
+  if (W.knobs && !q.lo) { // chunky off-road tread
+    const n = 10;
+    for (let i = 0; i < n; i++) {
+      const a = (i / n) * PI * 2;
+      for (const sx of [-1, 1]) P.add(G.box(), 'flat', tire, [sx * W.w * 0.22, Math.cos(a) * W.r, Math.sin(a) * W.r], [a, 0, 0], [W.w * 0.36, 0.07, 0.13]);
+    }
+  }
   return P.build();
 }
 
@@ -501,31 +521,34 @@ function buildBody(ch, L, q) {
   // engine block
   P.add(G.cbox(0.56, 0.2, 0.3, 0.05), 'flat', CHASSIS, [0, 0.79, -0.84]);
   if (!q.lo) for (const sx of [-0.13, 0.13]) P.add(G.cyl(6), 'metal', METAL, [sx, 0.93, -0.84], null, [0.07, 0.1, 0.07]);
-  // exhaust pipes
-  const pq = alignY(PIPE_DIR.x, PIPE_DIR.y, PIPE_DIR.z);
+  addPipes(P, L, q, PIPE_A, PIPE_DIR, PIPE_LEN);
+  // spoiler
+  buildSpoiler(P, ch, L, q);
+  // species kart details
+  KART_EXTRAS[ch.species]?.(P, ch, L, q);
+  return P.build();
+}
+
+function addPipes(P, L, q, A, D, len) {
+  const pq = alignY(D.x, D.y, D.z);
   for (const sx of [-1, 1]) {
-    const a = V(sx * PIPE_A.x, PIPE_A.y, PIPE_A.z);
-    const mid = a.clone().addScaledVector(PIPE_DIR, PIPE_LEN / 2);
-    const tip = a.clone().addScaledVector(PIPE_DIR, PIPE_LEN);
+    const a = V(sx * A.x, A.y, A.z);
+    const mid = a.clone().addScaledVector(D, len / 2);
+    const tip = a.clone().addScaledVector(D, len);
     if (L.pipes === 'bamboo') {
-      P.add(G.cyl(q.n(8)), 'flat', '#5fbf3a', [mid.x, mid.y, mid.z], pq, [0.065, PIPE_LEN, 0.065]);
+      P.add(G.cyl(q.n(8)), 'flat', '#5fbf3a', [mid.x, mid.y, mid.z], pq, [0.065, len, 0.065]);
       for (const t of [0.35, 0.75]) {
-        const p = a.clone().addScaledVector(PIPE_DIR, PIPE_LEN * t);
+        const p = a.clone().addScaledVector(D, len * t);
         P.add(G.cyl(q.n(8), true), 'flat', '#3f9a2a', [p.x, p.y, p.z], pq, [0.075, 0.025, 0.075]);
       }
       P.add(G.cyl(q.n(8)), 'flat', '#3f9a2a', [tip.x, tip.y, tip.z], pq, [0.08, 0.04, 0.08]);
       // little leaf
       P.add(G.sphere(6, 4), 'flat', '#7ed957', [tip.x - sx * 0.07, tip.y - 0.1, tip.z + 0.08], [0.3, 0, sx * 0.9], [0.02, 0.09, 0.04]);
     } else {
-      P.add(G.cyl(q.n(8)), 'metal', METAL, [mid.x, mid.y, mid.z], pq, [0.055, PIPE_LEN, 0.055]);
+      P.add(G.cyl(q.n(8)), 'metal', METAL, [mid.x, mid.y, mid.z], pq, [0.055, len, 0.055]);
       P.add(G.cyl(q.n(8), true), 'metal', '#e8ecf3', [tip.x, tip.y, tip.z], pq, [0.075, 0.07, 0.075]);
     }
   }
-  // spoiler
-  buildSpoiler(P, ch, L, q);
-  // species kart details
-  KART_EXTRAS[ch.species]?.(P, ch, L, q);
-  return P.build();
 }
 
 function buildSpoiler(P, ch, L, q) {
@@ -607,6 +630,429 @@ const KART_EXTRAS = {
     for (const sx of [-0.35, 0.35]) P.add(q.s(6, 4), 'flat', '#5fbf3a', [sx, 1.15, -0.74], null, 0.042);
   },
 };
+
+// ---------------------------------------------------------------------------
+// Vehicles: every character rides something different (physics is identical).
+// ---------------------------------------------------------------------------
+function tube(P, a, b, r, matKey, color, n = 6) {
+  const d = V(b[0] - a[0], b[1] - a[1], b[2] - a[2]);
+  const len = d.length();
+  if (len < 1e-4) return;
+  P.add(G.cyl(n), matKey, color, [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2], alignY(d.x, d.y, d.z), [r, len, r]);
+}
+
+// front fork rig: head-tube pivot H, axle A (kart space). Fork runs along local -Y.
+function rig(H, A, barUp = 0.12) {
+  const d = V(A[0] - H[0], A[1] - H[1], A[2] - H[2]);
+  const len = d.length();
+  return { H, len, rake: -Math.asin(clamp(d.z / len, -1, 1)), barUp };
+}
+
+const W_CAR_R = { r: 0.34, w: 0.38, x: 0.71, z: -0.86 }, W_CAR_F = { r: 0.31, w: 0.32, x: 0.7, z: 0.9 };
+const W_BUG_R = { r: 0.5, w: 0.42, x: 0.66, z: -0.8, knobs: true }, W_BUG_F = { r: 0.47, w: 0.4, x: 0.66, z: 0.86, knobs: true };
+const W_BIKE_R = { r: 0.4, w: 0.24, x: 0, z: -0.82, both: true }, W_BIKE_F = { r: 0.38, w: 0.2, x: 0, z: 0.86, both: true };
+const W_SCO_R = { r: 0.29, w: 0.22, x: 0, z: -0.74, both: true }, W_SCO_F = { r: 0.29, w: 0.2, x: 0, z: 0.8, both: true };
+const W_TRI_R = { r: 0.4, w: 0.36, x: 0.64, z: -0.76 }, W_TRI_F = { r: 0.36, w: 0.24, x: 0, z: 0.98, both: true };
+const W_SKI = { r: 0, w: 0.16, x: 0.48, z: 0.72, ski: true };
+
+const wl = (W, side, front, extra = {}) => ({ W, side, front, ...extra });
+const VEHICLES = {
+  kart: {
+    wheels: [wl(WR, 1, 0), wl(WR, -1, 0), wl(WF, 1, 1), wl(WF, -1, 1)],
+    steer: 'wheel', seat: [0, 0, 0], pipeA: PIPE_A, pipeDir: PIPE_DIR, roll: 1, lean: 0, bob: 1,
+  },
+  car: {
+    wheels: [wl(W_CAR_R, 1, 0), wl(W_CAR_R, -1, 0), wl(W_CAR_F, 1, 1), wl(W_CAR_F, -1, 1)],
+    steer: 'wheel', seat: [0, -0.03, -0.05], pipeA: V(0.34, 0.3, -1.22), pipeDir: V(0, 0.2, -0.98).normalize(), roll: 0.8, lean: 0, bob: 0.7,
+  },
+  buggy: {
+    wheels: [wl(W_BUG_R, 1, 0), wl(W_BUG_R, -1, 0), wl(W_BUG_F, 1, 1), wl(W_BUG_F, -1, 1)],
+    steer: 'wheel', seat: [0, 0.3, -0.02], pipeA: V(0.4, 1.02, -0.84), pipeDir: V(0, 0.92, -0.38).normalize(), roll: 1.6, lean: 0, bob: 2.4,
+  },
+  hover: {
+    wheels: [], points: [[0.42, -0.75], [-0.42, -0.75], [0.42, 0.75], [-0.42, 0.75]],
+    steer: 'bar', bar: [0, 0.98, 0.16], seat: [0, 0.14, 0], pipeA: V(0.36, 0.42, -1.16), pipeDir: V(0, 0.02, -1).normalize(), roll: 0, lean: 0.22, bob: 0, hover: 0.32,
+  },
+  sled: {
+    wheels: [wl(W_SKI, 1, 1, { key: 'ski' }), wl(W_SKI, -1, 1, { key: 'ski' })], points: [[0.3, -0.6], [-0.3, -0.6], [0.48, 0.72], [-0.48, 0.72]],
+    steer: 'bar', bar: [0, 0.98, 0.2], seat: [0, 0.08, 0], pipeA: V(0.22, 0.46, -1.16), pipeDir: V(0, 0.3, -0.95).normalize(), roll: 0.4, lean: 0.1, bob: 0.6,
+  },
+  bike: {
+    wheels: [wl(W_BIKE_R, 1, 0), wl(W_BIKE_F, 1, 1, { rig: rig([0, 1.0, 0.36], [0, W_BIKE_F.r, W_BIKE_F.z]) })],
+    steer: 'rig', seat: [0, 0.02, 0.14], pipeA: V(0.2, 0.36, -0.74), pipeDir: V(0, 0.25, -0.97).normalize(), roll: 0, lean: 0.42, bob: 0.8,
+  },
+  scooter: {
+    wheels: [wl(W_SCO_R, 1, 0), wl(W_SCO_F, 1, 1, { rig: rig([0, 1.02, 0.44], [0, W_SCO_F.r, W_SCO_F.z]) })],
+    steer: 'rig', seat: [0, 0.0, 0.12], pipeA: V(0.17, 0.3, -0.84), pipeDir: V(0, 0.2, -0.98).normalize(), roll: 0, lean: 0.36, bob: 0.9,
+  },
+  trike: {
+    wheels: [wl(W_TRI_R, 1, 0), wl(W_TRI_R, -1, 0), wl(W_TRI_F, 1, 1, { rig: rig([0, 0.98, 0.42], [0, W_TRI_F.r, W_TRI_F.z]) })],
+    steer: 'rig', seat: [0, 0.04, 0.12], pipeA: V(0.3, 0.5, -1.04), pipeDir: V(0, 0.4, -0.92).normalize(), roll: 0.6, lean: 0.08, bob: 1,
+  },
+};
+export const VEHICLE_TYPES = Object.keys(VEHICLES);
+function vehicleOf(ch) { return VEHICLES[ch.vehicle] || VEHICLES.kart; }
+
+function sideDecals(P, x, y, z, s = 0.24) {
+  for (const sx of [-1, 1]) P.add(G.plane(1), 'decal', WHITE, [sx * x, y, z], [0, sx * PI / 2, 0], s);
+}
+function seatParts(P, ch, z = -0.36, y = 0.5) {
+  const seat = '#30323f';
+  P.add(G.box(), 'vc', seat, [0, y, z], null, [0.5, 0.12, 0.46]);
+  P.add(G.cbox(0.54, 0.56, 0.12, 0.05), 'vc', seat, [0, y + 0.3, z - 0.26], [-0.22, 0, 0]);
+  P.add(G.box(), 'gloss', ch.color, [0, y + 0.56, z - 0.32], [-0.22, 0, 0], [0.56, 0.08, 0.13]);
+}
+function headlights(P, q, z, y, xs, dir = [0, 0.3, 0.95]) {
+  const hq = alignY(...dir);
+  for (const sx of xs) {
+    if (!q.lo) P.add(G.cyl(10, true), 'metal', METAL, [sx, y, z], hq, [0.085, 0.07, 0.085]);
+    P.add(G.cyl(8), 'glow', '#fff6cf', [sx, y, z], hq, [0.07, 0.05, 0.07]);
+  }
+}
+
+const BODY = {
+  kart: (ch, L, q) => buildBody(ch, L, q),
+
+  car(ch, L, q) {
+    const P = new Parts(), acc = ch.accent, vs = VEHICLES.car;
+    P.add(G.box(), 'flat', CHASSIS, [0, 0.2, 0], null, [1.1, 0.1, 2.3]);
+    P.add(G.sbox(1.3, 0.3, 2.5, 0.12), 'paint', WHITE, [0, 0.38, 0]);
+    P.add(G.sbox(1.16, 0.16, 0.95, 0.07), 'paint', WHITE, [0, 0.55, 0.72], [0.12, 0, 0]);
+    P.add(G.sbox(1.2, 0.2, 0.72, 0.08), 'paint', WHITE, [0, 0.57, -0.88]);
+    for (const sx of [-1, 1]) {
+      P.add(G.box(), 'gloss', acc, [sx * 0.655, 0.27, 0], null, [0.04, 0.08, 1.9]);
+      P.add(G.sbox(0.4, 0.2, 0.82, 0.08), 'paint', WHITE, [sx * 0.68, 0.58, -0.86]);
+      P.add(G.sbox(0.38, 0.18, 0.74, 0.08), 'paint', WHITE, [sx * 0.68, 0.53, 0.9]);
+      P.add(G.box(), 'flat', DARK, [sx * 0.66, 0.42, 0.25], null, [0.02, 0.1, 0.3]); // side vent
+    }
+    // racing stripe over the hood
+    P.add(G.box(), 'gloss', acc, [0, 0.64, 0.72], [0.12, 0, 0], [0.18, 0.012, 0.92]);
+    // windscreen
+    P.add(G.box(), 'flat', DARK, [0, 0.66, 0.24], [-0.6, 0, 0], [0.96, 0.04, 0.05]);
+    P.add(G.box(), 'glass', WHITE, [0, 0.79, 0.17], [-0.6, 0, 0], [0.9, 0.3, 0.02]);
+    headlights(P, q, 1.18, 0.44, [-0.4, 0.4]);
+    if (!q.lo) for (const sx of [-0.4, 0.4]) P.add(G.box(), 'glow', '#ff3b4e', [sx, 0.55, -1.25], null, [0.2, 0.06, 0.02]);
+    P.add(G.plane(1), 'decal', WHITE, [0, 0.645, 0.4], [-PI / 2 + 0.12, 0, 0], 0.26);
+    P.add(G.plane(2), 'decal', WHITE, [0, 0.42, -1.255], [0, PI, 0], 0.24);
+    sideDecals(P, 0.656, 0.42, -0.25, 0.22);
+    seatParts(P, ch, -0.4, 0.46);
+    P.add(G.cyl(q.n(8)), 'flat', DARK, [0, 0.72, 0.42], [-0.5, 0, 0], [0.09, 0.06, 0.09]);
+    const colDir = V(0, -Math.sin(TILT), Math.cos(TILT));
+    const colC = SW.clone().addScaledVector(colDir, 0.17); colC.y -= 0.03;
+    P.add(G.cyl(6), 'flat', DARK, [colC.x, colC.y, colC.z], alignY(colDir.x, colDir.y, colDir.z), [0.025, 0.32, 0.025]);
+    // rear wing
+    for (const sx of [-0.4, 0.4]) P.add(G.box(), 'flat', DARK, [sx, 0.8, -1.08], [0.2, 0, 0], [0.05, 0.3, 0.08]);
+    P.add(G.cbox(1.34, 0.06, 0.34, 0.025), 'gloss', acc === WHITE ? DARK : acc, [0, 0.97, -1.1], [0.12, 0, 0]);
+    for (const sx of [-1, 1]) P.add(G.box(), 'paint', WHITE, [sx * 0.68, 0.95, -1.1], null, [0.05, 0.22, 0.42]);
+    addPipes(P, L, q, vs.pipeA, vs.pipeDir, 0.2);
+    return P.build();
+  },
+
+  buggy(ch, L, q) {
+    const P = new Parts(), acc = ch.accent, vs = VEHICLES.buggy;
+    const cage = acc === '#2a2a33' ? '#3a3d4a' : DARK;
+    P.add(G.box(), 'flat', CHASSIS, [0, 0.56, 0.02], null, [0.9, 0.14, 2.0]);
+    // suspension arms to the big tyres
+    if (!q.lo) for (const sx of [-1, 1]) for (const z of [W_BUG_R.z, W_BUG_F.z]) tube(P, [sx * 0.3, 0.56, z], [sx * 0.6, 0.48, z], 0.05, 'metal', '#8a90a0');
+    P.add(G.sbox(1.06, 0.38, 1.5, 0.12), 'paint', WHITE, [0, 0.8, -0.14]);
+    P.add(G.sbox(0.86, 0.3, 0.55, 0.1), 'paint', WHITE, [0, 0.78, 0.86], [0.22, 0, 0]);
+    for (const sx of [-1, 1]) {
+      P.add(G.sbox(0.5, 0.12, 0.78, 0.05), 'gloss', acc, [sx * 0.66, 1.0, W_BUG_R.z], [0, 0, -sx * 0.12]);
+      P.add(G.sbox(0.48, 0.12, 0.72, 0.05), 'gloss', acc, [sx * 0.66, 0.97, W_BUG_F.z], [0, 0, -sx * 0.12]);
+    }
+    sideDecals(P, 0.535, 0.8, -0.2, 0.26);
+    P.add(G.plane(1), 'decal', WHITE, [0, 0.94, 0.92], [-PI / 2 + 0.22, 0, 0], 0.26);
+    // bull bar + headlights
+    tube(P, [-0.42, 0.66, 1.22], [0.42, 0.66, 1.22], 0.05, 'gloss', cage);
+    for (const sx of [-0.3, 0.3]) tube(P, [sx, 0.5, 1.12], [sx, 0.82, 1.2], 0.04, 'gloss', cage);
+    headlights(P, q, 1.1, 0.88, [-0.22, 0.22]);
+    // roll cage
+    const T = 1.98;
+    for (const sx of [-0.46, 0.46]) {
+      tube(P, [sx, 0.95, -0.78], [sx, T, -0.7], 0.045, 'gloss', cage);
+      tube(P, [sx, 0.98, 0.42], [sx * 0.94, T, -0.12], 0.045, 'gloss', cage);
+      tube(P, [sx * 0.97, T, -0.7], [sx * 0.94, T, -0.12], 0.045, 'gloss', cage);
+    }
+    tube(P, [-0.46, T, -0.7], [0.46, T, -0.7], 0.045, 'gloss', cage);
+    tube(P, [-0.44, T, -0.12], [0.44, T, -0.12], 0.045, 'gloss', cage);
+    // light bar on the cage
+    P.add(G.box(), 'flat', DARK, [0, T + 0.07, -0.12], null, [0.7, 0.1, 0.1]);
+    for (const sx of [-0.24, -0.08, 0.08, 0.24]) P.add(G.box(), 'glow', '#fff6cf', [sx, T + 0.07, -0.065], null, [0.12, 0.07, 0.01]);
+    // spare tyre
+    P.add(tireGeometry(0.34, 0.24, q.pick(14, 10, 8)), 'vc', '#24252d', [0, 1.05, -1.04], [0, PI / 2, 0]);
+    seatParts(P, ch, -0.36, 0.78);
+    P.add(G.cyl(q.n(8)), 'flat', DARK, [0, 1.02, 0.42], [-0.5, 0, 0], [0.09, 0.06, 0.09]);
+    const colDir = V(0, -Math.sin(TILT), Math.cos(TILT));
+    const colC = SW.clone().addScaledVector(colDir, 0.17); colC.y += 0.3;
+    P.add(G.cyl(6), 'flat', DARK, [colC.x, colC.y, colC.z], alignY(colDir.x, colDir.y, colDir.z), [0.025, 0.32, 0.025]);
+    addPipes(P, L, q, vs.pipeA, vs.pipeDir, 0.36);
+    if (!q.lo) for (const sx of [-0.35, 0.35]) P.add(G.box(), 'glow', '#ff3b4e', [sx, 0.7, -0.9], null, [0.12, 0.06, 0.02]);
+    return P.build();
+  },
+
+  hover(ch, L, q) {
+    const P = new Parts(), acc = ch.accent, vs = VEHICLES.hover;
+    P.add(G.sbox(1.28, 0.32, 2.3, 0.14), 'paint', WHITE, [0, 0.36, -0.05]);
+    P.add(q.s(14, 8), 'paint', WHITE, [0, 0.36, 1.1], null, [0.62, 0.16, 0.38]);
+    P.add(G.sbox(1.0, 0.1, 1.0, 0.04), 'gloss', acc, [0, 0.53, 0.42]);
+    P.add(G.sbox(1.34, 0.08, 2.2, 0.04), 'flat', CHASSIS, [0, 0.2, -0.05]);
+    // glowing lift pads underneath + rim
+    for (const sx of [-1, 1]) for (const z of [-0.75, 0.75]) {
+      P.add(G.cyl(q.n(14)), 'flat', DARK, [sx * 0.42, 0.15, z], null, [0.27, 0.06, 0.27]);
+      P.add(G.cyl(q.n(14)), 'glow', '#5ff3ff', [sx * 0.42, 0.11, z], null, [0.21, 0.04, 0.21]);
+    }
+    // glowing side stripe
+    for (const sx of [-1, 1]) {
+      P.add(G.box(), 'glow', '#5ff3ff', [sx * 0.645, 0.3, -0.05], null, [0.012, 0.035, 1.8]);
+      P.add(profileExtrude('hfin', [[0, 0], [0.55, 0], [0.18, 0.36], [0, 0.36]], 0.05, 0.015), 'paint', WHITE, [sx * 0.62, 0.48, -1.0], [0, PI / 2, 0]);
+    }
+    sideDecals(P, 0.645, 0.4, 0.3, 0.22);
+    P.add(G.plane(2), 'decal', WHITE, [0, 0.4, -1.205], [0, PI, 0], 0.22);
+    headlights(P, q, 1.42, 0.38, [-0.2, 0.2], [0, 0.1, 1]);
+    // control pod + seat
+    P.add(G.sbox(0.42, 0.28, 0.32, 0.08), 'gloss', DARK, [0, 0.66, 0.28]);
+    P.add(G.box(), 'glow', '#5ff3ff', [0, 0.74, 0.44], [-0.4, 0, 0], [0.24, 0.1, 0.01]);
+    seatParts(P, ch, -0.36, 0.56);
+    // rear thrusters
+    for (const sx of [-1, 1]) P.add(G.cyl(q.n(10)), 'metal', METAL, [sx * vs.pipeA.x, vs.pipeA.y, -1.06], [PI / 2, 0, 0], [0.12, 0.22, 0.12]);
+    for (const sx of [-1, 1]) P.add(G.torus(0.12, 0.03, 4, q.n(12)), 'gloss', acc, [sx * vs.pipeA.x, vs.pipeA.y, -1.17]);
+    if (ch.species === 'robot') {
+      P.add(G.cyl(6), 'flat', DARK, [0.42, 0.85, -0.9], null, [0.015, 0.6, 0.015]);
+      P.add(G.sphere(7, 5), 'glow', '#ff4060', [0.42, 1.17, -0.9], null, 0.045);
+    }
+    return P.build();
+  },
+
+  sled(ch, L, q) {
+    const P = new Parts(), acc = ch.accent, vs = VEHICLES.sled;
+    // front cowl + windscreen
+    P.add(G.sbox(0.96, 0.4, 1.3, 0.14), 'paint', WHITE, [0, 0.52, 0.42]);
+    P.add(q.s(12, 8), 'paint', WHITE, [0, 0.46, 1.04], null, [0.46, 0.2, 0.3]);
+    P.add(G.box(), 'glass', WHITE, [0, 0.86, 0.5], [-0.55, 0, 0], [0.76, 0.34, 0.02]);
+    P.add(G.box(), 'gloss', acc, [0, 0.74, 0.62], [-0.3, 0, 0], [0.8, 0.04, 0.3]);
+    headlights(P, q, 1.18, 0.5, [-0.18, 0.18], [0, 0.1, 1]);
+    // rear tread + seat + running boards
+    P.add(G.box(), 'flat', DARK, [0, 0.24, -0.58], null, [0.62, 0.34, 1.16]);
+    if (!q.lo) for (let i = 0; i < 6; i++) P.add(G.box(), 'flat', '#4a4e5e', [0, 0.06, -0.12 - i * 0.18], null, [0.64, 0.06, 0.06]);
+    for (const sx of [-1, 1]) {
+      P.add(G.box(), 'gloss', acc, [sx * 0.44, 0.34, -0.45], null, [0.26, 0.06, 1.0]);
+      P.add(G.sbox(0.2, 0.24, 0.9, 0.06), 'paint', WHITE, [sx * 0.38, 0.5, -0.5]);
+    }
+    P.add(G.sbox(0.5, 0.16, 0.9, 0.06), 'vc', '#30323f', [0, 0.56, -0.46]);
+    P.add(G.box(), 'gloss', ch.color, [0, 0.66, -0.94], null, [0.5, 0.08, 0.12]);
+    sideDecals(P, 0.485, 0.55, 0.42, 0.22);
+    P.add(G.plane(1), 'decal', WHITE, [0, 0.725, 0.8], [-PI / 2 + 0.3, 0, 0], 0.22);
+    // ski struts to the steering skis
+    for (const sx of [-1, 1]) tube(P, [sx * 0.3, 0.42, W_SKI.z], [sx * W_SKI.x, 0.22, W_SKI.z], 0.04, 'metal', '#8a90a0');
+    if (!q.lo) for (const sx of [-0.25, 0.25]) P.add(G.box(), 'glow', '#ff3b4e', [sx, 0.5, -1.17], null, [0.12, 0.06, 0.02]);
+    P.add(G.box(), 'flat', DARK, [0, 0.42, -1.12], null, [0.7, 0.14, 0.1]);
+    addPipes(P, L, q, vs.pipeA, vs.pipeDir, 0.2);
+    // icicle spoiler
+    P.add(G.cbox(0.9, 0.05, 0.24, 0.02), 'gloss', acc, [0, 0.86, -1.02], [0.1, 0, 0]);
+    for (const sx of [-0.4, 0.4]) P.add(G.box(), 'flat', DARK, [sx, 0.74, -1.0], null, [0.04, 0.22, 0.06]);
+    for (let i = -2; i <= 2; i++) P.add(G.cone(5), 'gloss', '#bfeaff', [i * 0.18, 0.79, -1.04], [PI, 0, 0], [0.025, 0.1 + (i & 1) * 0.04, 0.025]);
+    return P.build();
+  },
+
+  bike(ch, L, q) {
+    const P = new Parts(), acc = ch.accent, vs = VEHICLES.bike;
+    P.add(G.sbox(0.28, 0.26, 0.62, 0.1), 'paint', WHITE, [0, 0.84, 0.16], [-0.12, 0, 0]);          // tank
+    P.add(G.box(), 'gloss', acc, [0, 0.98, 0.16], [-0.12, 0, 0], [0.1, 0.01, 0.56]);
+    P.add(G.cbox(0.34, 0.32, 0.46, 0.06), 'flat', CHASSIS, [0, 0.46, 0.02]);                        // engine
+    if (!q.lo) for (const y of [0.38, 0.46, 0.54]) P.add(G.box(), 'metal', METAL, [0, y, 0.26], null, [0.4, 0.025, 0.06]);
+    P.add(G.cbox(0.3, 0.1, 0.62, 0.04), 'vc', '#30323f', [0, 0.56, -0.24]);                      // seat
+    P.add(G.sbox(0.32, 0.22, 0.52, 0.08), 'paint', WHITE, [0, 0.7, -0.74], [-0.22, 0, 0]);        // tail cowl
+    P.add(G.box(), 'glow', '#ff3b4e', [0, 0.72, -1.0], [-0.22, 0, 0], [0.18, 0.06, 0.02]);
+    P.add(G.sbox(0.24, 0.05, 0.5, 0.02), 'paint', WHITE, [0, 0.86, -0.88], [-0.35, 0, 0]);       // rear fender
+    sideDecals(P, 0.162, 0.7, -0.72, 0.18);
+    // frame + swingarm
+    for (const sx of [-1, 1]) {
+      tube(P, [sx * 0.13, 0.4, W_BIKE_R.z], [sx * 0.13, 0.42, -0.12], 0.035, 'metal', '#8a90a0');
+      tube(P, [sx * 0.1, 0.92, 0.38], [sx * 0.1, 0.5, -0.1], 0.03, 'gloss', DARK);
+    }
+    // fixed front fairing with headlight + screen
+    P.add(G.sbox(0.42, 0.32, 0.24, 0.08), 'paint', WHITE, [0, 1.02, 0.5], [-0.35, 0, 0]);
+    P.add(G.box(), 'glass', WHITE, [0, 1.22, 0.46], [-0.6, 0, 0], [0.34, 0.2, 0.02]);
+    headlights(P, q, 0.62, 1.0, [0], [0, 0.25, 0.97]);
+    P.add(G.plane(1), 'decal', WHITE, [0, 1.1, 0.6], [-0.35, 0, 0], 0.18);
+    // footpegs
+    for (const sx of [-1, 1]) P.add(G.cyl(6), 'metal', METAL, [sx * 0.2, 0.3, 0.12], [0, 0, PI / 2], [0.025, 0.14, 0.025]);
+    addPipes(P, L, q, vs.pipeA, vs.pipeDir, 0.26);
+    if (L.spoiler === 'spikes') for (let i = 0; i < 4; i++) P.add(G.cone(5), 'flat', acc, [0, 0.82 - i * 0.03, -0.56 - i * 0.12], [-0.3, 0, 0], [0.05, 0.13, 0.05]);
+    return P.build();
+  },
+
+  scooter(ch, L, q) {
+    const P = new Parts(), acc = ch.accent, vs = VEHICLES.scooter;
+    P.add(G.sbox(0.42, 0.08, 1.1, 0.03), 'paint', WHITE, [0, 0.3, 0.0]);                           // floorboard
+    P.add(G.box(), 'flat', DARK, [0, 0.35, 0.05], null, [0.38, 0.01, 0.9]);
+    P.add(G.sbox(0.52, 0.72, 0.14, 0.06), 'paint', WHITE, [0, 0.66, 0.56], [-0.22, 0, 0]);        // leg shield
+    P.add(G.sbox(0.5, 0.36, 0.78, 0.16), 'paint', WHITE, [0, 0.46, -0.58]);                         // rear body
+    P.add(G.box(), 'gloss', acc, [0, 0.47, -0.58], null, [0.51, 0.06, 0.6]);
+    P.add(G.cbox(0.34, 0.1, 0.62, 0.04), 'vc', '#30323f', [0, 0.6, -0.42]);                       // seat
+    P.add(G.box(), 'glow', '#ff3b4e', [0, 0.48, -0.98], null, [0.2, 0.07, 0.02]);
+    sideDecals(P, 0.25, 0.46, -0.6, 0.2);
+    P.add(G.plane(1), 'decal', WHITE, [0, 0.72, 0.64], [-0.22, 0, 0], 0.22);
+    headlights(P, q, 0.66, 1.0, [0], [0, 0.2, 0.98]);
+    // carrot basket on the shield
+    P.add(G.cbox(0.34, 0.2, 0.2, 0.03), 'flat', '#c98a4a', [0, 0.92, 0.72]);
+    if (!q.lo) for (const sx of [-0.06, 0.06]) P.add(G.cone(6), 'gloss', '#ff8a1e', [sx, 1.06, 0.72], [PI - 0.2 * Math.sign(sx), 0, 0], [0.04, 0.2, 0.04]);
+    P.add(G.sphere(6, 4), 'flat', '#5fcf3a', [0, 1.17, 0.72], null, [0.08, 0.05, 0.05]);
+    addPipes(P, L, q, vs.pipeA, vs.pipeDir, 0.16);
+    return P.build();
+  },
+
+  trike(ch, L, q) {
+    const P = new Parts(), acc = ch.accent, vs = VEHICLES.trike;
+    tube(P, [0, 0.5, -0.5], [0, 0.82, 0.42], 0.09, 'paint', WHITE, q.n(10));                     // spine
+    P.add(G.sbox(1.0, 0.36, 0.86, 0.14), 'paint', WHITE, [0, 0.56, -0.62]);                         // rear pod
+    P.add(G.box(), 'gloss', acc, [0, 0.58, -0.62], null, [1.01, 0.06, 0.7]);
+    for (const sx of [-1, 1]) {
+      P.add(G.sbox(0.42, 0.1, 0.8, 0.04), 'paint', WHITE, [sx * W_TRI_R.x, 0.88, W_TRI_R.z], [0, 0, -sx * 0.18]);
+      P.add(profileExtrude('fin', [[0, 0], [0.42, 0], [0.12, 0.34], [0, 0.34]], 0.04, 0.015), 'paint', WHITE, [sx * 0.42, 0.72, -0.8], [0, PI / 2, 0]);
+      P.add(G.box(), 'glow', '#ffe36e', [sx * 0.505, 0.5, -0.5], null, [0.012, 0.04, 0.5]);
+    }
+    P.add(G.cbox(0.4, 0.12, 0.5, 0.04), 'vc', '#30323f', [0, 0.58, -0.26]);
+    P.add(G.sbox(0.3, 0.24, 0.5, 0.08), 'paint', WHITE, [0, 0.66, 0.16]);
+    sideDecals(P, 0.505, 0.6, -0.78, 0.2);
+    P.add(G.plane(2), 'decal', WHITE, [0, 0.56, -1.055], [0, PI, 0], 0.22);
+    if (!q.lo) for (const sx of [-0.3, 0.3]) P.add(G.box(), 'glow', '#ff3b4e', [sx, 0.66, -1.06], null, [0.12, 0.06, 0.02]);
+    // space antenna
+    P.add(G.cyl(6), 'flat', METAL, [0.36, 0.95, -0.9], null, [0.012, 0.5, 0.012]);
+    P.add(G.sphere(7, 5), 'glow', '#ffe36e', [0.36, 1.22, -0.9], null, 0.045);
+    addPipes(P, L, q, vs.pipeA, vs.pipeDir, 0.22);
+    return P.build();
+  },
+};
+
+// fork (head-tube local frame, fork along -Y) + handlebar
+function buildFork(ch, W, rg, q) {
+  const P = new Parts();
+  for (const sx of [-1, 1]) tube(P, [sx * (W.w / 2 + 0.05), -0.08, 0], [sx * (W.w / 2 + 0.05), -rg.len, 0], 0.035, 'metal', METAL, q.n(8));
+  P.add(G.cbox(W.w + 0.2, 0.08, 0.12, 0.03), 'gloss', DARK, [0, -0.06, 0]);
+  tube(P, [0, -0.06, 0], [0, rg.barUp, 0], 0.035, 'gloss', DARK, q.n(8));
+  P.add(G.sbox(W.w + 0.1, 0.05, 0.6, 0.02), 'paint', WHITE, [0, -rg.len + W.r + 0.08, 0.02], [-rg.rake, 0, 0]);
+  return P.build();
+}
+function buildBar(ch, q, stem = 0) {
+  const P = new Parts();
+  P.add(G.capsule(0.024, 0.5, 1, q.n(7)), 'gloss', DARK, null, [0, 0, PI / 2]);
+  for (const sx of [-1, 1]) P.add(G.capsule(0.038, 0.1, 1, q.n(7)), 'vc', '#202230', [sx * 0.27, 0, 0], [0, 0, PI / 2]);
+  P.add(G.cbox(0.1, 0.07, 0.07, 0.02), 'gloss', ch.color, [0, 0, 0]);
+  if (stem) tube(P, [0, 0, 0], [0, -stem, 0.08], 0.035, 'gloss', DARK, q.n(8));
+  return P.build();
+}
+function buildSki(ch, q) {
+  const P = new Parts();
+  P.add(G.cbox(0.16, 0.05, 1.0, 0.02), 'gloss', ch.accent, [0, 0.03, 0]);
+  P.add(G.cbox(0.16, 0.05, 0.28, 0.02), 'gloss', ch.accent, [0, 0.11, 0.6], [-0.6, 0, 0]);
+  P.add(G.box(), 'metal', METAL, [0, 0.13, 0], null, [0.05, 0.2, 0.1]);
+  return P.build();
+}
+
+// ---------------------------------------------------------------------------
+// Gliders (glider-local: origin between the shoulders, canopy above)
+// ---------------------------------------------------------------------------
+function cords(P, from, tos, r = 0.01) { for (const t of tos) tube(P, from, t, r, 'flat', '#30323f', 4); }
+function buildGlider(ch, L, q) {
+  const main = new Parts(), out = { main: null, spin: null, wing: null, spinPos: null, wingPos: null };
+  const c1 = ch.color, c2 = ch.accent === '#2a2a33' ? WHITE : ch.accent;
+  const hands = [[0.2, 0, 0.05], [-0.2, 0, 0.05]];
+  switch (ch.glider) {
+    case 'parachute': {
+      const n = 8, R = 1.3, cy = 1.35;
+      for (let i = 0; i < n; i++) {
+        const g = cached(`chute${i}`, () => new THREE.SphereGeometry(1, 3, q.pick(6, 5, 4), (i / n) * PI * 2, (PI * 2) / n, 0, PI / 2));
+        main.add(g, 'cloth', i % 2 ? c1 : WHITE, [0, cy, -0.2], null, [R, 0.62, R]);
+      }
+      main.add(G.cyl(8), 'cloth', '#30323f', [0, cy + 0.63, -0.2], null, [0.14, 0.03, 0.14]);
+      const rim = [];
+      for (let i = 0; i < 6; i++) { const a = (i / 6) * PI * 2 + 0.3; rim.push([Math.cos(a) * R * 0.98, cy + 0.02, -0.2 + Math.sin(a) * R * 0.98]); }
+      cords(main, hands[0], rim.filter(p => p[0] >= 0)); cords(main, hands[1], rim.filter(p => p[0] < 0));
+      break;
+    }
+    case 'paraglider': {
+      const cells = 9, R = 1.7;
+      const ends = [];
+      for (let i = 0; i < cells; i++) {
+        const a = (i - (cells - 1) / 2) * 0.17;
+        const x = Math.sin(a) * R, y = 0.2 + Math.cos(a) * R;
+        main.add(G.sbox(0.4, 0.16, 0.8, 0.06), 'cloth', i % 2 ? c1 : c2 === WHITE ? '#ffd23f' : c2, [x, y, -0.35], [0, 0, -a]);
+        if (i === 0 || i === 3 || i === 5 || i === cells - 1) ends.push([x, y - 0.06, -0.3]);
+      }
+      cords(main, hands[0], ends.filter(p => p[0] > 0)); cords(main, hands[1], ends.filter(p => p[0] < 0));
+      break;
+    }
+    case 'hangglider': {
+      const wing = profileExtrude('hgwing', [[-1.6, -0.55], [0, 0.85], [1.6, -0.55], [0, -0.2]], 0.03, 0.01);
+      const wg = cached('hgwingflat', () => wing.clone().rotateX(PI / 2));
+      main.add(wg, 'cloth', c1, [0, 1.1, -0.35]);
+      const stripe = cached('hgstripe', () => profileExtrude('hgs', [[-0.9, -0.12], [0, 0.65], [0.9, -0.12], [0, 0.1]], 0.03, 0.005).clone().rotateX(PI / 2));
+      main.add(stripe, 'cloth', c2, [0, 1.13, -0.35]);
+      tube(main, [0, 1.12, 0.52], [0, 1.12, -0.9], 0.03, 'metal', METAL);
+      tube(main, [0, 1.12, -0.1], [0.32, 0.12, 0.12], 0.025, 'metal', METAL);
+      tube(main, [0, 1.12, -0.1], [-0.32, 0.12, 0.12], 0.025, 'metal', METAL);
+      tube(main, [0.34, 0.12, 0.12], [-0.34, 0.12, 0.12], 0.025, 'metal', METAL);
+      break;
+    }
+    case 'umbrella': {
+      const n = 8, R = 1.1, cy = 1.5;
+      for (let i = 0; i < n; i++) {
+        const g = cached(`umb${i}`, () => new THREE.CylinderGeometry(0.0, 1, 1, 2, 1, true, (i / n) * PI * 2, (PI * 2) / n));
+        main.add(g, 'cloth', i % 2 ? c2 : '#a6e34a', [0, cy, -0.15], null, [R, 0.42, R]);
+      }
+      tube(main, [0.18, -0.05, 0.1], [0, cy + 0.32, -0.15], 0.025, 'gloss', '#7a4a2a');
+      main.add(q.s(8, 6), 'gloss', c2, [0, cy + 0.33, -0.15], null, 0.06);
+      main.add(G.torus(0.08, 0.022, 4, 10, PI), 'gloss', '#7a4a2a', [0.2, -0.08, 0.12], [0, PI / 2, PI]);
+      break;
+    }
+    case 'copter': {
+      tube(main, [0, -0.1, -0.15], [0, 1.0, -0.15], 0.035, 'metal', METAL);
+      main.add(G.cyl(q.n(10)), 'gloss', c2, [0, 1.0, -0.15], null, [0.11, 0.1, 0.11]);
+      main.add(G.cbox(0.3, 0.22, 0.14, 0.05), 'gloss', c1, [0, -0.05, -0.2]); // backpack motor
+      const sp = new Parts();
+      for (const r of [0, PI / 2]) sp.add(G.cbox(2.5, 0.03, 0.16, 0.012), 'gloss', r ? c1 : c2, [0, 0, 0], [0, r, 0]);
+      sp.add(q.s(8, 6), 'gloss', '#ff4060', [0, 0.05, 0], null, [0.08, 0.06, 0.08]);
+      out.spin = sp.build(); out.spinPos = [0, 1.06, -0.15];
+      break;
+    }
+    case 'wings': {
+      main.add(G.cbox(0.3, 0.3, 0.12, 0.05), 'gloss', DARK, [0, 0, -0.18]);
+      const wp = new Parts();
+      const wing = profileExtrude('batwing', [[0, 0.22], [0.5, 0.36], [1.05, 0.42], [1.45, 0.2], [1.25, -0.02], [1.05, 0.1], [0.82, -0.16], [0.6, 0.02], [0.36, -0.2], [0.14, -0.02], [0, -0.12]], 0.03, 0.01);
+      wp.add(cached('batwingflat', () => wing.clone().rotateX(PI / 2)), 'cloth', c1);
+      tube(wp, [0, 0.03, 0.22], [1.05, 0.03, 0.42], 0.03, 'gloss', DARK);
+      tube(wp, [1.05, 0.03, 0.42], [1.45, 0.03, 0.2], 0.025, 'gloss', DARK);
+      out.wing = wp.build(); out.wingPos = [0.12, 0.05, -0.2];
+      break;
+    }
+    case 'kite': {
+      const kc = [0, 1.9, -1.1];
+      for (const dz of [-0.32, 0.32]) main.add(G.cyl(4, true), 'cloth', dz < 0 ? c1 : c2, [kc[0], kc[1], kc[2] + dz], [PI / 2, 0, 0], [0.5, 0.3, 0.5]);
+      for (let i = 0; i < 4; i++) {
+        const a = (i / 4) * PI * 2;
+        const x = Math.cos(a) * 0.5, y = Math.sin(a) * 0.5;
+        tube(main, [kc[0] + x, kc[1] + y, kc[2] - 0.5], [kc[0] + x, kc[1] + y, kc[2] + 0.5], 0.018, 'flat', '#7a4a2a', 4);
+      }
+      tube(main, [kc[0] - 0.5, kc[1], kc[2]], [kc[0] + 0.5, kc[1], kc[2]], 0.015, 'flat', '#7a4a2a', 4);
+      cords(main, [0, 0.05, 0.1], [[kc[0], kc[1] - 0.5, kc[2] + 0.4]], 0.012);
+      // tail bows
+      for (let i = 0; i < 3; i++) main.add(G.cbox(0.14, 0.06, 0.05, 0.015), 'cloth', i % 2 ? c1 : c2, [0, kc[1] - 0.7 - i * 0.22, kc[2] - 0.55 - i * 0.12]);
+      break;
+    }
+    case 'balloon':
+    default: {
+      const bs = [[-0.36, 1.65, -0.2, c1], [0.36, 1.72, -0.28, '#ffe14a'], [0, 2.05, -0.12, '#5ff3ff'], [0.05, 1.5, -0.45, c2 === WHITE ? '#9b6bff' : c2]];
+      for (const [x, y, z, c] of bs) {
+        main.add(q.s(14, 10), 'gloss', c, [x, y, z], null, [0.36, 0.44, 0.36]);
+        main.add(G.cone(6), 'gloss', c, [x, y - 0.47, z], [PI, 0, 0], [0.06, 0.08, 0.06]);
+        cords(main, [0, 0.0, 0.05], [[x, y - 0.5, z]], 0.008);
+      }
+    }
+  }
+  out.main = main.build();
+  return out;
+}
 
 // ---------------------------------------------------------------------------
 // Builders: steering wheel (local: wheel plane XY, axis Z)
@@ -960,11 +1406,20 @@ function getTemplate(ch, lod) {
   const head = new Parts();
   head.push(HEAD);
   (HEADS[ch.species] || HEADS.fox)(head, ch, L, q);
+  const vs = vehicleOf(ch);
+  const wheelT = new Map();
+  let fork = null;
+  for (const wd of vs.wheels) {
+    const key = wd.key || wd.W;
+    if (!wheelT.has(key)) wheelT.set(key, wd.key === 'ski' ? buildSki(ch, q) : buildWheel(ch, wd.W, q));
+    if (wd.rig && !fork) fork = buildFork(ch, wd.W, wd.rig, q);
+  }
   t = {
-    body: buildBody(ch, L, q),
-    steer: buildSteeringWheel(ch, q),
-    wheelF: buildWheel(ch, WF, q),
-    wheelR: buildWheel(ch, WR, q),
+    body: (BODY[ch.vehicle] || BODY.kart)(ch, L, q),
+    steer: vs.steer === 'wheel' ? buildSteeringWheel(ch, q) : null,
+    bar: vs.steer !== 'wheel' ? buildBar(ch, q, vs.steer === 'bar' ? 0.36 : 0) : null,
+    wheel: wheelT, fork,
+    glider: buildGlider(ch, L, q),
     torso: buildTorso(ch, L, q),
     head: head.build(),
     sleeve: buildSleeve(ch, L, q),
@@ -1039,37 +1494,69 @@ export function buildKart(charId, { lod } = {}) {
   group.name = 'kart:' + ch.id;
   const scaleNode = new THREE.Group(); group.add(scaleNode);
   const spinNode = new THREE.Group(); scaleNode.add(spinNode);
-  const bodyNode = new THREE.Group(); bodyNode.name = 'body'; spinNode.add(bodyNode);
+  const vs = vehicleOf(ch);
+  const leanNode = new THREE.Group(); leanNode.name = 'lean'; spinNode.add(leanNode);
+  const bodyNode = new THREE.Group(); bodyNode.name = 'body'; leanNode.add(bodyNode);
   meshesInto(bodyNode, tpl.body, ch, meshes);
+  const cockpit = new THREE.Group(); cockpit.name = 'cockpit';
+  cockpit.position.set(vs.seat[0], vs.seat[1], vs.seat[2]);
+  bodyNode.add(cockpit);
 
-  // steering wheel
-  const steerBase = new THREE.Group();
-  steerBase.position.copy(SW); steerBase.rotation.x = TILT;
-  const steerWheel = new THREE.Group(); steerWheel.name = 'steering'; steerBase.add(steerWheel);
-  bodyNode.add(steerBase);
-  meshesInto(steerWheel, tpl.steer, ch, meshes);
-
-  // wheels: [RL(+x), RR(-x), FL, FR]
-  const wheels = [];
-  const wheelPoints = [];
-  const defs = [[WR, 1, false], [WR, -1, false], [WF, 1, true], [WF, -1, true]];
-  for (const [W, side, front] of defs) {
-    const steerN = new THREE.Group();
-    steerN.position.set(side * W.x, W.r, W.z);
-    const spinN = new THREE.Group(); steerN.add(spinN);
-    const holder = new THREE.Group(); holder.name = 'wheel'; holder.scale.x = side; spinN.add(holder);
-    meshesInto(holder, front ? tpl.wheelF : tpl.wheelR, ch, meshes);
-    spinNode.add(steerN);
-    wheels.push({ steerN, spinN, front, r: W.r, baseY: W.r });
-    const wp = new THREE.Object3D();
-    wp.name = 'wheelPoint';
-    wp.position.set(side * W.x, 0, W.z);
-    spinNode.add(wp);
-    wheelPoints.push(wp);
+  // steering: wheel (karts/cars) or handlebar (bikes, hover, sled)
+  let steerWheel = null, bar = null;
+  if (tpl.steer) {
+    const steerBase = new THREE.Group();
+    steerBase.position.copy(SW); steerBase.rotation.x = TILT;
+    steerWheel = new THREE.Group(); steerWheel.name = 'steering'; steerBase.add(steerWheel);
+    cockpit.add(steerBase);
+    meshesInto(steerWheel, tpl.steer, ch, meshes);
   }
+  const makeBar = (parent, pos) => {
+    bar = new THREE.Group(); bar.name = 'steering';
+    bar.position.set(pos[0], pos[1], pos[2]);
+    parent.add(bar);
+    meshesInto(bar, tpl.bar, ch, meshes);
+    for (const sx of [1, -1]) { const m = new THREE.Object3D(); m.position.set(sx * 0.27, 0, 0); bar.add(m); }
+  };
+  if (vs.steer === 'bar') makeBar(cockpit, [vs.bar[0] - vs.seat[0], vs.bar[1] - vs.seat[1], vs.bar[2] - vs.seat[2]]);
+
+  // wheels (rear first). Two-wheelers lean as a whole, so their wheels live under leanNode.
+  const wheels = [];
+  const wheelParent = vs.lean > 0.3 ? leanNode : spinNode;
+  for (const wd of vs.wheels) {
+    const W = wd.W;
+    let steerN, spinN;
+    if (wd.rig) {
+      const rg = wd.rig;
+      const headN = new THREE.Group(); headN.position.set(0, rg.H[1], rg.H[2]); headN.rotation.x = rg.rake;
+      bodyNode.add(headN);
+      steerN = new THREE.Group(); headN.add(steerN);
+      meshesInto(steerN, tpl.fork, ch, meshes);
+      const off = new THREE.Group(); off.position.y = -rg.len; steerN.add(off);
+      spinN = new THREE.Group(); off.add(spinN);
+      if (vs.steer === 'rig') makeBar(steerN, [0, rg.barUp, 0]);
+    } else {
+      steerN = new THREE.Group();
+      steerN.position.set(wd.side * W.x, W.r, W.z);
+      spinN = new THREE.Group(); steerN.add(spinN);
+      wheelParent.add(steerN);
+    }
+    const holder = new THREE.Group(); holder.name = 'wheel'; holder.scale.x = wd.side; spinN.add(holder);
+    meshesInto(holder, tpl.wheel.get(wd.key || W), ch, meshes);
+    wheels.push({ steerN, spinN, front: !!wd.front, r: W.r, baseY: W.r, rig: !!wd.rig, spins: !W.ski });
+  }
+  // contact markers: RL, RR, FL, FR
+  const pts = vs.points || (() => {
+    const rear = vs.wheels.filter(w => !w.front), front = vs.wheels.filter(w => w.front);
+    const pick = (list, side) => { const w = list.find(x => x.W.x === 0) || list.find(x => x.side === side) || list[0]; return [w.W.x === 0 ? 0 : side * w.W.x, w.W.z]; };
+    return [pick(rear, 1), pick(rear, -1), pick(front, 1), pick(front, -1)];
+  })();
+  const wheelPoints = pts.map(([x, z]) => {
+    const wp = new THREE.Object3D(); wp.name = 'wheelPoint'; wp.position.set(x, 0, z); spinNode.add(wp); return wp;
+  });
 
   // driver
-  const driver = new THREE.Group(); driver.name = 'driver'; bodyNode.add(driver);
+  const driver = new THREE.Group(); driver.name = 'driver'; cockpit.add(driver);
   meshesInto(driver, tpl.torso, ch, meshes);
   const headPivot = new THREE.Group(); headPivot.name = 'head';
   headPivot.position.copy(NECK);
@@ -1085,23 +1572,45 @@ export function buildKart(charId, { lod } = {}) {
     meshesInto(hand, tpl.hand, ch, meshes);
     hand.scale.x = side;
     driver.add(pivot);
-    arms.push({ side, pivot, sleeve, hand, grip: side > 0 ? GRIP[0] : GRIP[1] });
+    arms.push({ side, pivot, sleeve, hand, grip: side > 0 ? GRIP[0] : GRIP[1], mark: bar ? bar.children[bar.children.length - (side > 0 ? 2 : 1)] : null });
   }
   let tail = null;
   if (tpl.tail) {
     tail = new THREE.Group(); tail.name = 'tail';
     tail.position.copy(TAIL_POS[ch.species]);
     meshesInto(tail, tpl.tail, ch, meshes);
-    bodyNode.add(tail);
+    cockpit.add(tail);
   }
+
+  // glider (hidden until deployed)
+  const glider = new THREE.Group(); glider.name = 'glider';
+  glider.position.set(0, 1.12, -0.4);
+  glider.visible = false;
+  cockpit.add(glider);
+  meshesInto(glider, tpl.glider.main, ch, meshes);
+  let rotor = null; const wingNodes = [];
+  if (tpl.glider.spin) {
+    rotor = new THREE.Group(); rotor.position.set(...tpl.glider.spinPos); glider.add(rotor);
+    meshesInto(rotor, tpl.glider.spin, ch, meshes);
+  }
+  if (tpl.glider.wing) {
+    for (const sx of [1, -1]) {
+      const wn = new THREE.Group(); wn.position.set(sx * tpl.glider.wingPos[0], tpl.glider.wingPos[1], tpl.glider.wingPos[2]);
+      wn.scale.x = sx; glider.add(wn); wingNodes.push(wn);
+      meshesInto(wn, tpl.glider.wing, ch, meshes);
+    }
+  }
+  for (const m of meshes) if (m.parent === glider || m.parent === rotor || wingNodes.includes(m.parent)) m.castShadow = false;
 
   // exhaust markers + flames
   const flameMat = new THREE.MeshBasicMaterial({ color: FLAME_COLORS.idle.clone(), transparent: true, opacity: 0.85, depthWrite: false });
   const exhaustPoints = [];
   const flames = [];
-  const pipeRotX = -Math.acos(clamp(PIPE_DIR.y, -1, 1)); // +Y -> PIPE_DIR
+  const pDir = vs.pipeDir, pA = vs.pipeA;
+  const pLen = ch.vehicle === 'buggy' ? 0.36 : ch.vehicle === 'bike' ? 0.26 : ch.vehicle === 'kart' ? PIPE_LEN : ch.vehicle === 'hover' ? 0.12 : 0.2;
+  const pipeRotX = -Math.acos(clamp(pDir.y, -1, 1)); // +Y -> pipe direction
   for (const sx of [1, -1]) {
-    const tip = V(sx * PIPE_A.x, PIPE_A.y, PIPE_A.z).addScaledVector(PIPE_DIR, PIPE_LEN + 0.02);
+    const tip = V(sx * pA.x, pA.y, pA.z).addScaledVector(pDir, pLen + 0.02);
     const ep = new THREE.Object3D();
     ep.name = 'exhaustPoint';
     ep.position.copy(tip);
@@ -1137,7 +1646,7 @@ export function buildKart(charId, { lod } = {}) {
   // --- animation state ---
   const st = {
     t: Math.random() * 10, steer: 0, roll: 0, pitch: 0, driftYaw: 0, look: 0,
-    mega: 0, shield: 0, celeb: 0, boost: 0, air: 0, squashT: 0,
+    mega: 0, shield: 0, celeb: 0, boost: 0, air: 0, squashT: 0, lean: 0, glide: 0, resc: 0,
   };
   const tmp = V(), target = V(), up = V(), dirV = V();
   const qArm = new THREE.Quaternion();
@@ -1158,21 +1667,28 @@ export function buildKart(charId, { lod } = {}) {
     st.mega = damp(st.mega, s.mega ? 1 : 0, 4, dt);
     st.shield = damp(st.shield, s.shield ? 1 : 0, 9, dt);
 
+    st.resc = damp(st.resc, s.rescued ? 1 : 0, 6, dt);
+    const party = Math.max(st.celeb, st.resc);
+
     // wheels
     for (const w of wheels) {
-      w.spinN.rotation.x = (w.spinN.rotation.x + (speed / w.r) * dt) % (PI * 2);
-      if (w.front) w.steerN.rotation.y = -st.steer * 0.42 + drift * 0.18;
-      w.steerN.position.y = w.baseY - st.air * 0.07;
+      if (w.spins) w.spinN.rotation.x = (w.spinN.rotation.x + (speed / w.r) * dt) % (PI * 2);
+      if (w.front) w.steerN.rotation.y = -st.steer * (w.rig ? 0.3 : 0.42) + drift * (w.rig ? 0.1 : 0.18);
+      if (!w.rig) w.steerN.position.y = w.baseY - st.air * 0.07;
     }
 
-    // body roll / pitch / bob
-    const rollT = -st.steer * 0.075 * Math.min(1, sp01 * 1.6) - drift * 0.12 + (s.lean || 0);
+    // body roll / pitch / bob; two-wheelers & hover lean the whole vehicle into the turn
+    const rollT = (-st.steer * 0.075 * Math.min(1, sp01 * 1.6) - drift * 0.12) * vs.roll + (s.lean || 0) * vs.roll;
     st.roll = damp(st.roll, rollT, 8, dt);
+    const leanT = (st.steer * Math.min(1, sp01 * 1.4) + drift * 0.6) * vs.lean;
+    st.lean = damp(st.lean, clamp(leanT, -0.5, 0.5), 7, dt);
+    leanNode.rotation.z = st.lean;
     const pitchT = -st.boost * 0.07 - st.air * 0.06;
     st.pitch = damp(st.pitch, pitchT, 6, dt);
-    const bob = (Math.sin(t * 17) * 0.014 + Math.sin(t * 29.3) * 0.007) * sp01 + Math.sin(t * 5) * 0.004;
-    bodyNode.position.y = 0.01 + bob + st.air * 0.03;
-    bodyNode.rotation.set(st.pitch + Math.sin(t * 13) * 0.006 * sp01, 0, st.roll);
+    const bob = ((Math.sin(t * 17) * 0.014 + Math.sin(t * 29.3) * 0.007) * sp01 + Math.sin(t * 5) * 0.004) * (vs.bob || 0.3);
+    const hov = vs.hover ? vs.hover + Math.sin(t * 3.1) * 0.05 + Math.sin(t * 7.3) * 0.015 - st.air * 0.1 : 0;
+    bodyNode.position.y = 0.01 + bob + st.air * 0.03 + hov;
+    bodyNode.rotation.set(st.pitch + Math.sin(t * 13) * 0.006 * sp01 * (vs.bob || 0.3) + (vs.hover ? -st.boost * 0.05 : 0), 0, st.roll);
 
     // drift yaw + spin-out
     st.driftYaw = damp(st.driftYaw, -drift * 0.2, 6, dt);
@@ -1186,24 +1702,26 @@ export function buildKart(charId, { lod } = {}) {
     const jig = sq > 0 ? Math.sin(t * 38) * 0.08 * sq : 0;
     scaleNode.scale.set(mg * (1 + 0.32 * sq - jig * 0.5), mg * (1 - 0.48 * sq + jig), mg * (1 + 0.32 * sq - jig * 0.5));
 
-    // steering wheel
+    // steering wheel / handlebar
     const wheelAng = st.steer * 1.15 * (1 - st.celeb);
-    steerWheel.rotation.z = wheelAng;
+    if (steerWheel) steerWheel.rotation.z = wheelAng;
+    if (bar && vs.steer === 'bar') bar.rotation.y = -st.steer * 0.35;
 
     // driver: bounce + head look
-    driver.position.y = st.celeb * Math.abs(Math.sin(t * 7)) * 0.12;
-    const lookT = (-st.steer * 0.45 - drift * 0.18) * (1 - st.celeb);
+    driver.position.y = party * Math.abs(Math.sin(t * 7)) * 0.12;
+    const lookT = (-st.steer * 0.45 - drift * 0.18) * (1 - party);
     st.look = damp(st.look, lookT, 7, dt);
-    headPivot.rotation.y = st.look + st.celeb * Math.sin(t * 3.2) * 0.35;
-    headPivot.rotation.z = st.steer * 0.12 + spinning * Math.sin(t * 16) * 0.22 + st.celeb * Math.sin(t * 7) * 0.08;
+    headPivot.rotation.y = st.look + st.celeb * Math.sin(t * 3.2) * 0.35 + st.resc * Math.sin(t * 9) * 0.45;
+    headPivot.rotation.z = st.steer * 0.12 + spinning * Math.sin(t * 16) * 0.22 + st.celeb * Math.sin(t * 7) * 0.08 + st.resc * Math.cos(t * 9) * 0.2;
     headPivot.rotation.x = -st.boost * 0.12 + bob * 1.5 - st.celeb * 0.15;
 
     // arms (IK-lite: aim pivot at grip / celebrate pose)
+    if (bar) group.updateMatrixWorld(true);
     for (const a of arms) {
-      tmp.copy(a.grip).applyAxisAngle(AZ, wheelAng).applyAxisAngle(AX, TILT).add(SW);
+      if (a.mark) { a.mark.getWorldPosition(tmp); driver.worldToLocal(tmp); }
+      else { tmp.copy(a.grip).applyAxisAngle(AZ, wheelAng).applyAxisAngle(AX, TILT).add(SW); tmp.y -= driver.position.y; }
       up.set(a.side * (0.5 + Math.sin(t * 9 + a.side) * 0.08), SHOULDER.y + 0.62, SHOULDER.z + 0.12);
-      target.copy(tmp).lerp(up, st.celeb);
-      target.y -= driver.position.y * (1 - st.celeb);
+      target.copy(tmp).lerp(up, party);
       dirV.copy(target).sub(a.pivot.position);
       const dist = dirV.length();
       dirV.multiplyScalar(1 / dist);
@@ -1211,6 +1729,18 @@ export function buildKart(charId, { lod } = {}) {
       a.pivot.quaternion.copy(qArm);
       a.sleeve.scale.z = dist / ARM_REF;
       a.hand.position.z = dist;
+    }
+
+    // glider: pop open (~0.3 s, overshoot) / fold away (~0.25 s)
+    st.glide = clamp(st.glide + (s.gliding ? dt / 0.3 : -dt / 0.25), 0, 1);
+    glider.visible = st.glide > 0.001;
+    if (glider.visible) {
+      const g = st.glide;
+      const e = s.gliding ? 1 + 2.4 * Math.pow(g - 1, 3) + 1.4 * Math.pow(g - 1, 2) : g * g;
+      glider.scale.setScalar(Math.max(0.001, e));
+      glider.rotation.set((1 - g) * 1.1 + Math.sin(t * 1.7) * 0.05 * g, Math.sin(t * 0.9) * 0.05 * g, Math.sin(t * 2.1) * 0.08 * g - st.lean * 0.5);
+      if (rotor) rotor.rotation.y += dt * 26 * g;
+      for (let i = 0; i < wingNodes.length; i++) wingNodes[i].rotation.z = (0.15 + Math.sin(t * 6.5) * 0.28) * g * (i ? -1 : 1);
     }
 
     if (tail) {
@@ -1260,7 +1790,8 @@ export function buildKart(charId, { lod } = {}) {
   return {
     group, update, exhaustPoints, wheelPoints, setTint, dispose,
     character: ch, charId: ch.id,
-    nodes: { scaleNode, spinNode, bodyNode, driver, headPivot },
+    vehicle: ch.vehicle || 'kart', glider: ch.glider,
+    nodes: { scaleNode, spinNode, leanNode, bodyNode, cockpit, driver, headPivot, glider },
     tagPoint, backPoint,
   };
 }

@@ -15,7 +15,7 @@ test('host lobby renders with QR, room code and 3D background', async ({ page })
   await expect(page.locator('.pcard')).toHaveCount(8);
   // cycle through every track (rebuilds the 3D world each time)
   for (let i = 0; i < 4; i++) { await page.click('#trk-next'); await page.waitForTimeout(700); }
-  await expect(page.locator('#track-name')).toHaveText('Sunny Meadow');
+  await expect(page.locator('#track-name')).toHaveText('Tonztown Circuit');
   expect(errs).toEqual([]);
 });
 
@@ -46,10 +46,15 @@ test('phone joins, picks a character, leader starts race, inputs reach host', as
   await pad2.click('#joinBtn');
   await expect(host.locator('.pcard.filled')).toHaveCount(2);
 
-  // pick a character on phone 1
-  const target = await pad.locator('#charGrid .char').nth(3).getAttribute('data-id');
-  await pad.locator('#charGrid .char').nth(3).click();
-  await expect.poll(() => host.evaluate(() => window.__app.players[0].char)).toBe(target);
+  // racers are handed out (unique), phones can shuffle a few times and rename
+  const chars = await host.evaluate(() => window.__app.players.map(p => p.char));
+  expect(new Set(chars).size).toBe(2);
+  const before = chars[0];
+  await pad.click('#shuffleBtn');
+  await expect.poll(() => host.evaluate(() => window.__app.players[0].char)).not.toBe(before);
+  await expect.poll(() => host.evaluate(() => window.__app.players[0].shuffles)).toBe(2);
+  await pad.click('#ccBtn');
+  await expect.poll(() => host.evaluate(() => window.__app.settings.cc)).toBe(200);
   await pad.click('#readyBtn');
   await expect.poll(() => host.evaluate(() => window.__app.players[0].ready)).toBe(true);
 
@@ -60,13 +65,19 @@ test('phone joins, picks a character, leader starts race, inputs reach host', as
   await expect.poll(() => pad.evaluate(() => document.body.dataset.screen), { timeout: 10000 }).toMatch(/race|countdown/);
   // split screen with two viewports
   await expect(host.locator('.hud-panel')).toHaveCount(2);
-  // auto-gas default -> host sees gas held
+  // stick + drift held together reach the host
   await pad.setViewportSize({ width: 844, height: 390 });
-  await expect.poll(() => host.evaluate(() => window.__app.players[0].input.g), { timeout: 8000 }).toBe(1);
+  await expect(pad.locator('#stickZone')).toBeVisible();
+  const box = await pad.locator('#stickZone').boundingBox();
+  const cx = box.x + box.width * 0.45, cy = box.y + box.height * 0.6;
+  await pad.mouse.move(cx, cy); await pad.mouse.down(); await pad.mouse.move(cx + 120, cy, { steps: 4 });
+  await expect.poll(() => host.evaluate(() => window.__app.players[0].input.s), { timeout: 8000 }).toBeGreaterThan(0.5);
+  await pad.mouse.up();
+  await expect.poll(() => host.evaluate(() => window.__app.players[0].input.s)).toBe(0);
   await host.bringToFront(); // the host is the visible TV tab in real use (rAF pauses in background tabs)
   await host.waitForTimeout(7000);
   const k = await host.evaluate(() => { const k = window.__app.race.karts.find(k => k.human && k.slot === 0); return { v: k.v, prog: k.prog }; });
-  expect(k.v).toBeGreaterThan(10);
+  expect(k.v).toBeGreaterThan(10); // nobody holds gas: karts drive themselves
   // host HUD info arrives on the phone
   await expect(pad.locator('#hudLap')).toHaveText('1');
   await expect(pad.locator('#hudPlace')).not.toHaveText('');

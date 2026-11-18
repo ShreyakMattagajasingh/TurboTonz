@@ -1,4 +1,4 @@
-// Party Karts audio engine: everything is synthesized with WebAudio.
+// Turbo Tonz audio engine: everything is synthesized with WebAudio.
 // Every public method is a safe no-op before unlock() or without AudioContext.
 import { THEMES, THEME_NAMES, LOOP_STEPS, playStep } from './music.js';
 import { SFX_NAMES, playSfx } from './sfx.js';

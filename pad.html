@@ -9,7 +9,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="format-detection" content="telephone=no">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 100 100%27%3E%3Ctext y=%27.9em%27 font-size=%2790%27%3E%F0%9F%8F%8E%3C/text%3E%3C/svg%3E">
-  <title>Party Karts Pad</title>
+  <title>Turbo Tonz Pad</title>
   <link rel="stylesheet" href="/src/pad/pad.css">
 </head>
 <body>
@@ -25,8 +25,8 @@
   <!-- 1. JOIN -->
   <section id="join" class="screen active">
     <div class="join-card">
-      <div class="logo" aria-label="Party Karts">
-        <span class="l1">PARTY</span><span class="l2">KARTS</span>
+      <div class="logo" aria-label="Turbo Tonz">
+        <span class="l1">TURBO</span><span class="l2">TONZ</span>
         <svg class="flag" viewBox="0 0 64 24" aria-hidden="true"><path d="M2 20 Q16 4 32 14 T62 8" fill="none" stroke="#ffd23f" stroke-width="5" stroke-linecap="round"/></svg>
       </div>
       <form id="joinForm" autocomplete="off" novalidate>
@@ -39,7 +39,7 @@
           <button id="changeRoom" class="chip" type="button">CHANGE</button>
         </div>
         <label class="field" id="nameField">
-          <span class="lbl">YOUR NAME</span>
+          <span class="lbl">NAME YOUR RACER</span>
           <input id="nameInput" class="name-in" maxlength="12" autocomplete="off" autocorrect="off" spellcheck="false" placeholder="Speedy" enterkeyhint="go">
         </label>
         <button id="joinBtn" class="btn btn-go" type="submit"><span id="joinLabel">JOIN</span></button>
@@ -54,29 +54,47 @@
       <header class="me-banner" id="meBanner">
         <div class="slot"><small>PLAYER</small><b id="meSlot">1</b></div>
         <div class="me-info">
-          <div class="me-name" id="meName">Player</div>
-          <div class="me-sub" id="meSub">Pick your racer</div>
+          <small class="me-k">RACER NAME</small>
+          <div class="me-name-row" id="nameRow">
+            <span class="me-name" id="meName">Player</span>
+            <button id="nameEdit" class="pencil" type="button" aria-label="Rename your racer">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16z" fill="currentColor"/><path d="M14 6l4 4" stroke="#1b1030" stroke-width="2"/></svg>
+            </button>
+          </div>
+          <form id="nameForm" class="name-form" hidden autocomplete="off">
+            <input id="nameEditInput" maxlength="12" autocomplete="off" autocorrect="off" spellcheck="false" enterkeyhint="done" aria-label="Racer name">
+            <button class="btn btn-sm btn-save" type="submit">SAVE</button>
+          </form>
         </div>
-        <div class="me-char" id="meChar"></div>
       </header>
 
       <div class="lobby-cols">
         <div class="col-chars">
-          <h2 class="sect">PICK YOUR RACER</h2>
-          <div class="char-grid" id="charGrid"></div>
-          <div class="stats" id="charStats"></div>
+          <h2 class="sect">YOUR RIDE</h2>
+          <div class="racer-card" id="racerCard">
+            <div class="rc-face" id="rcFace"><span>❓</span></div>
+            <div class="rc-info">
+              <div class="rc-char" id="rcChar">Finding your racer…</div>
+              <div class="rc-tag" id="rcTag"></div>
+              <div class="rc-chips" id="rcChips"></div>
+            </div>
+            <button id="shuffleBtn" class="btn btn-sm btn-shuffle" type="button">
+              <span class="dice">🎲</span><span>SHUFFLE</span><small id="shuffleLeft"></small>
+            </button>
+          </div>
         </div>
         <div class="col-side">
           <div id="leaderPanel" class="leader" hidden>
-            <h2 class="sect">HOST CONTROLS <span class="crown">★ LEADER</span></h2>
+            <h2 class="sect">RACE SETUP <span class="crown">★ LEADER</span></h2>
             <div class="row track">
               <button class="btn btn-sm btn-arrow" id="trackPrev" type="button" aria-label="Previous track">◀</button>
               <div class="track-name"><small>TRACK</small><b id="trackName">--</b></div>
               <button class="btn btn-sm btn-arrow" id="trackNext" type="button" aria-label="Next track">▶</button>
             </div>
-            <div class="row two">
+            <div class="row three">
               <button class="btn btn-sm btn-opt" id="lapsBtn" type="button"><small>LAPS</small><b id="lapsVal">3</b></button>
-              <button class="btn btn-sm btn-opt" id="cpuBtn" type="button"><small>CPU FILL</small><b id="cpuVal">TAP</b></button>
+              <button class="btn btn-sm btn-opt btn-cc" id="ccBtn" type="button"><small>SPEED</small><b id="ccVal">150cc</b></button>
+              <button class="btn btn-sm btn-opt" id="cpuBtn" type="button"><small>CPUS</small><b id="cpuVal">ON</b></button>
             </div>
           </div>
           <h2 class="sect">IN THE ROOM <span id="roomCount" class="count">1</span></h2>
@@ -95,11 +113,15 @@
     <header id="hud" class="hud">
       <div class="pill place"><b id="hudPlace">-</b><sup id="hudPlaceSuf"></sup><small id="hudTotal"></small></div>
       <div class="pill lap"><small>LAP</small><b id="hudLap">1</b><small id="hudLaps">/3</small></div>
-      <div class="steer-ind" aria-hidden="true"><i class="mid"></i><i class="needle" id="steerNeedle"></i></div>
-      <div class="pill mode" id="hudMode">TILT</div>
+      <div id="finishBanner" class="finish-tag" hidden>🏁 FINISHED!</div>
     </header>
 
-    <div id="steerZone" class="steer-zone" data-mode="tilt">
+    <!-- left: thumbstick / tilt -->
+    <div id="stickZone" class="stick-zone" data-mode="stick">
+      <div class="stick" id="stick" aria-hidden="true">
+        <div class="stick-base"><i class="arr al">◀</i><i class="arr ar">▶</i></div>
+        <div class="knob" id="knob"></div>
+      </div>
       <div class="tilt-view" id="tiltView">
         <div class="wheel" id="wheel">
           <svg viewBox="-10 -10 140 140" aria-hidden="true">
@@ -116,43 +138,39 @@
         </div>
         <div class="tilt-msg" id="tiltMsg">TILT TO STEER</div>
         <button id="enableTilt" class="btn btn-sm btn-enable" type="button" hidden>ENABLE TILT</button>
+        <button id="calBtn" class="chip chip-cal" type="button">⌖ CENTER</button>
       </div>
-      <div class="slide-view" id="slideView">
-        <div class="track" id="slideTrack">
-          <div class="ticks"></div>
-          <div class="thumb" id="slideThumb"><span>◀ ▶</span></div>
+    </div>
+    <div class="mode-toggle" id="modeToggle" role="group" aria-label="Steering mode">
+      <button type="button" data-m="stick">STICK</button><button type="button" data-m="tilt">TILT</button>
+    </div>
+
+    <!-- right: Joy-Con style diamond -->
+    <div id="padZone" class="pad-zone">
+      <div class="diamond" id="diamond">
+        <div class="dbtn up" data-k="u" aria-label="Hop">
+          <svg class="ico" viewBox="0 0 48 48" aria-hidden="true"><path d="M12 30 L24 16 L36 30" fill="none" stroke="currentColor" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/><path d="M14 40 h20" stroke="currentColor" stroke-width="5" stroke-linecap="round" opacity=".6"/></svg>
+          <span class="lab">HOP</span>
         </div>
-        <div class="tilt-msg">SLIDE TO STEER</div>
-      </div>
-      <div class="zone-tools">
-        <button id="calBtn" class="chip chip-big" type="button">⌖ CENTER</button>
-        <button id="modeBtn" class="chip chip-big" type="button">TOUCH</button>
-      </div>
-    </div>
-
-    <div id="btns" class="btns">
-      <div id="gasBtn" class="rbtn gas" role="button" aria-label="Gas">
-        <svg class="ico" viewBox="0 0 48 48" aria-hidden="true"><path d="M10 30 L24 14 L38 30" fill="none" stroke="currentColor" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/><path d="M10 42 L24 26 L38 42" fill="none" stroke="currentColor" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" opacity=".55"/></svg>
-        <span class="lab">GAS</span>
-        <button id="autoGas" class="chip auto on" type="button">AUTO ON</button>
-      </div>
-      <div id="itemBtn" class="rbtn item" role="button" aria-label="Use item">
-        <div class="item-ico" id="itemIco"></div>
-        <span class="lab" id="itemLab">ITEM</span>
-      </div>
-      <div id="brakeBtn" class="rbtn brake" role="button" aria-label="Brake">
-        <svg class="ico" viewBox="0 0 48 48" aria-hidden="true"><rect x="9" y="9" width="30" height="30" rx="8" fill="currentColor"/></svg>
-        <span class="lab">BRAKE</span>
-      </div>
-      <div id="driftBtn" class="rbtn drift" role="button" aria-label="Drift and hop">
-        <svg class="ico" viewBox="0 0 48 48" aria-hidden="true"><path d="M10 38 C10 20 20 12 38 12" fill="none" stroke="currentColor" stroke-width="7" stroke-linecap="round"/><path d="M28 3 L40 12 L28 22 Z" fill="currentColor" stroke="currentColor" stroke-width="3" stroke-linejoin="round"/></svg>
-        <span class="lab">DRIFT</span>
-        <small class="sub">HOLD TO HOP</small>
+        <div class="dbtn left" data-k="l" aria-label="Boost">
+          <svg class="ico" viewBox="0 0 48 48" aria-hidden="true"><path d="M27 4 L11 27 h11 l-4 17 L37 19 H25 Z" fill="currentColor" stroke="#1b1030" stroke-width="3" stroke-linejoin="round"/></svg>
+          <span class="lab" id="leftLab">BOOST</span>
+        </div>
+        <div class="dbtn right empty" data-k="i" id="itemBtn" aria-label="Use item">
+          <div class="reel-win"><div class="reel" id="reel"></div></div>
+          <span class="charges" id="charges"></span>
+          <span class="lab" id="itemLab">ITEM</span>
+        </div>
+        <div class="dbtn down" data-k="d" aria-label="Drift">
+          <svg class="ico" viewBox="0 0 48 48" aria-hidden="true"><path d="M10 36 C10 20 20 12 38 12" fill="none" stroke="currentColor" stroke-width="7" stroke-linecap="round"/><path d="M28 3 L40 12 L28 22 Z" fill="currentColor" stroke="currentColor" stroke-width="3" stroke-linejoin="round"/></svg>
+          <span class="lab">DRIFT</span>
+        </div>
+        <div class="boost-hint" id="boostHint" hidden>HOLD ON <b>2</b>!</div>
       </div>
     </div>
 
-    <div id="raceOverlay" class="race-overlay" hidden><b id="raceOverlayText">GET READY</b></div>
-    <div id="finishBanner" class="finish-banner" hidden>🏁 FINISHED!</div>
+    <div id="countOv" class="count-ov" hidden><b id="countNum">3</b></div>
+    <div id="flash" class="flash" hidden></div>
   </section>
 
   <!-- 4. RESULTS -->

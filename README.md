@@ -1,25 +1,39 @@
-# Party Karts 🏁
+# Turbo Tonz 🏁
 
 A couch kart racer. The **laptop is the TV**, and up to **8 friends join with their phones** by scanning a QR code. There's no app to install and no game server: phones connect to the laptop directly over WebRTC.
 
 ## Play
 1. Open the site on the laptop (ideally fullscreen with sound on). It shows a QR code and a 4-letter room code.
-2. Everyone scans the QR code, or opens `/pad.html` and types the code, enters a name and picks a racer.
-3. The first phone to join is the **leader** 👑 and can change the track, laps and CPUs, then press **START**.
-4. Phone controls: tilt to steer (or switch to the touch slider), **GAS** (auto-gas is on by default), **BRAKE**, hold **DRIFT** to hop and drift, and **ITEM**.
+2. Everyone scans the QR code (or opens `/pad.html` and types the code) and **names their racer**. Each phone is handed a unique racer, and you get 3 **shuffles** if you want a different one.
+3. The first phone to join is the **leader** 👑 and picks the track, laps, speed (**50 / 150 / 200cc**) and CPUs, then presses **START**.
+4. **Click once on the TV page (or press OK on the remote)** so the browser allows music. A banner reminds you until sound is on.
 
-Drift: hold drift while turning. Release when the sparks turn **blue → orange → purple** for an increasingly big boost. Hit the drift button again in the air off a ramp to do a trick boost.
+Phone controls (Joy-Con style):
+- **Left thumbstick**: steer. A small **STICK | TILT** switch under it changes to tilt steering, even mid-race, on that phone only.
+- **▼ DRIFT**: hold through a corner, with the stick or without it (the drift follows the bend). Let go on **blue → orange → purple** sparks for a boost.
+- **▶ ITEM**: use your power-up. The button shows a slot reel when you grab one.
+- **▲ HOP**: hop. Tap it off a ramp or the falls cliff for a trick boost on landing.
+- **◀ BOOST / HONK**: press it **when the 2 appears** in the countdown and hold through GO for a **rocket start**. Pressing on 3 stalls you. During the race it's a horn.
+- There's no gas or brake: every kart drives itself at the same speed.
+
+Power-ups (random, with a slight boost for the back of the pack): **Nitro**, **Oil Slick**, **Bouncer**, **Homing Rocket**, **Mega Mode**.
+
+Safety nets: walls sit on the curb, so nobody leaves the road. If you drive the wrong way for about 2 s, get stuck, or drop into the falls, **Hooky the rescue drone** picks you up, turns you the right way and puts you back around the same spot.
+
+Tracks: **Tonztown Circuit**, **Dune Canyon**, **Niya Nights**, and the finale **Niyagara Falls**, where you launch off a cliff, glide over the waterfall gorge and land on the far side.
 
 Laptop-only players:
-- **Keyboard P1:** `Space` to join, `WASD`, drift `Space`, item `E`.
-- **Keyboard P2:** `↑` to join, arrow keys, drift `/`, item `.`.
-- **Gamepads:** press `A` to join.
+- **Keyboard P1:** `Space` to join, `A`/`D` steer, `S`/`Space` drift, `E` item, `W` hop, `Q` boost, `R` new racer (lobby).
+- **Keyboard P2:** `/` to join, `←`/`→` steer, `↓` drift, `.` item, `↑` hop, `,` boost.
+- **Gamepads:** press `A` to join. A = drift, B = item, X = boost, Y = hop.
 
-Laptop shortcuts:
-- In the lobby: `A`/`D` changes character, `Enter` starts, `[`/`]` changes track.
-- During a race: `Esc` pauses and `M` mutes.
+TV / projector remote (when the game runs in the projector's own browser):
+- **D-pad + OK** move between and press the on-screen buttons.
+- **Back** pauses in a race, resumes from pause, and goes from results back to the lobby. It never leaves the page.
 
-Content: 4 tracks (Sunny Meadow, Dune Canyon, Frostbite Pass, Neon Nights), 8 original racers, 9 items (Nitro, Triple Nitro, Oil Slick, Bouncer, Triple Bouncer, Homing Rocket, Bubble Shield, Mega Mode, Thunder Zap), and CPU racers with rubber-banding, split-screen for 1–8 players, and synthesized music and sound effects.
+Laptop shortcuts: `[`/`]` change track, `Esc`/`P` pause, `M` mute, `F` fullscreen.
+
+Content: 4 tracks, 8 original racers, each with their own vehicle (sports car, monster buggy, kart, hover pod, snow sled, motorbike, trike, scooter) and glider. Also CPU racers with rubber-banding, 1–8 player split screen (4 up / 4 down for 8), and original synthesized music and sound effects (no copyrighted audio).
 
 ## Develop
 ```bash
@@ -36,7 +50,7 @@ Test URL params on the host:
 - `fake=N` adds N placeholder players.
 - `bot=1` makes the CPU drive the human karts.
 - `autostart=1` starts the race immediately.
-- `track=0..3` and `laps=N` set the track and lap count.
+- `track=0..3`, `laps=N` and `cc=50|150|200` set the track, lap count and speed.
 
 ## Deploy to Vercel
 It's a static site, so either:

@@ -56,12 +56,54 @@ function nameTag(name, color) {
   return s;
 }
 
+// Hooky — the friendly rescue drone that picks you up when you go the wrong way or fall.
+const DRONE = {};
+function droneParts() {
+  if (DRONE.body) return DRONE;
+  DRONE.body = new THREE.SphereGeometry(0.75, 18, 12).scale(1.3, 0.72, 1.1);
+  DRONE.eye = new THREE.SphereGeometry(0.2, 12, 8);
+  DRONE.pupil = new THREE.SphereGeometry(0.1, 10, 6);
+  DRONE.arm = new THREE.BoxGeometry(2.6, 0.12, 0.16);
+  DRONE.rotor = new THREE.CylinderGeometry(0.62, 0.62, 0.04, 20);
+  DRONE.cable = new THREE.CylinderGeometry(0.035, 0.035, 1, 6).translate(0, -0.5, 0);
+  DRONE.claw = new THREE.TorusGeometry(0.32, 0.08, 6, 14, Math.PI * 1.4);
+  DRONE.mYellow = new THREE.MeshStandardMaterial({ color: '#ffd23f', roughness: 0.35, metalness: 0.1 });
+  DRONE.mWhite = new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: 0.3 });
+  DRONE.mInk = new THREE.MeshStandardMaterial({ color: '#1a1b24', roughness: 0.4 });
+  DRONE.mGrey = new THREE.MeshStandardMaterial({ color: '#5a6378', roughness: 0.5, metalness: 0.4 });
+  DRONE.mRotor = new THREE.MeshBasicMaterial({ color: '#d8e3f5', transparent: true, opacity: 0.45, depthWrite: false });
+  return DRONE;
+}
+function buildDrone() {
+  const P = droneParts();
+  const g = new THREE.Group();
+  const body = new THREE.Mesh(P.body, P.mYellow);
+  g.add(body);
+  for (const sx of [-1, 1]) {
+    const e = new THREE.Mesh(P.eye, P.mWhite); e.position.set(sx * 0.3, 0.12, 0.72); g.add(e);
+    const pu = new THREE.Mesh(P.pupil, P.mInk); pu.position.set(sx * 0.3, 0.12, 0.88); g.add(pu);
+  }
+  const rotors = [];
+  for (const a of [Math.PI / 4, -Math.PI / 4]) {
+    const arm = new THREE.Mesh(P.arm, P.mGrey); arm.rotation.y = a; arm.position.y = 0.3; g.add(arm);
+    for (const sd of [-1, 1]) {
+      const r = new THREE.Mesh(P.rotor, P.mRotor);
+      r.position.set(Math.cos(-a) * 1.3 * sd, 0.42, Math.sin(-a) * 1.3 * sd);
+      g.add(r); rotors.push(r);
+    }
+  }
+  const cable = new THREE.Mesh(P.cable, P.mInk); cable.position.y = -0.45; g.add(cable);
+  const claw = new THREE.Mesh(P.claw, P.mGrey); claw.rotation.x = Math.PI / 2; g.add(claw);
+  g.visible = false;
+  return { group: g, rotors, cable, claw, t: 0, out: 0, active: false };
+}
+
 class ChaseCam {
   constructor() {
     this.cam = new THREE.PerspectiveCamera(72, 1, 0.3, 2400);
     this.pos = new THREE.Vector3(); this.look = new THREE.Vector3();
     this.heading = 0; this.init = false; this.fov = 72; this.shake = 0;
-    this.orbit = 0;
+    this.orbit = 0; this.glide = 0;
   }
   update(k, dt, race, mode = 'chase') {
     const t = 1 - Math.exp(-dt * 10);
@@ -69,10 +111,14 @@ class ChaseCam {
     this.heading = angleLerp(this.heading, k.heading - k.driftVis * 0.35, 1 - Math.exp(-dt * (k.drift ? 3.5 : 5)));
     let h = this.heading;
     let dist = 6.6 + Math.max(0, k.v) * 0.035, up = 2.7;
+    // over the falls: pull back and up so you see the drop and the far cliff
+    this.glide += ((k.gliding ? 1 : 0) - this.glide) * Math.min(1, dt * 2.5);
+    dist += this.glide * 4.5; up += this.glide * 5.2;
     if (mode === 'chase' && race.phase === 'countdown') {
       const f = Math.max(0, Math.min(1, (race.countdown - 1.2) / 2.2));
       const e = f * f * (3 - 2 * f);
-      h += e * Math.PI * 0.95; dist += e * 2; up += e * 0.5;
+      // swing round to face your racer on the grid (close enough not to clip the kart ahead)
+      h += e * Math.PI * 0.95; dist -= e * 2.2; up += e * 0.2;
     }
     if (mode === 'finish' || mode === 'orbit') { this.orbit += dt * 0.5; h += this.orbit + Math.PI * 0.8; dist = 8; up = 3; }
     else this.orbit = 0;
@@ -91,7 +137,7 @@ class ChaseCam {
     }
     if (this.pos.y < pr.y + 1.2) this.pos.y = pr.y + 1.2;
     const lx = k.x + Math.sin(k.heading) * 3, lz = k.z + Math.cos(k.heading) * 3;
-    this.look.set(lx, k.y + 1.2, lz);
+    this.look.set(lx, k.y + 1.2 + this.glide * 1.2, lz);
     this.cam.position.copy(this.pos);
     if (this.shake > 0) {
       this.shake = Math.max(0, this.shake - dt * 2);
@@ -176,7 +222,9 @@ export class GameView {
         tag.layers.set(layer);
         this.scene.add(tag);
       }
-      this.karts.push({ k, model, blob, tag });
+      const drone = buildDrone();
+      this.scene.add(drone.group);
+      this.karts.push({ k, model, blob, tag, drone });
     }
     this.cams = this.humanIds.map((id, i) => {
       const c = new ChaseCam();
@@ -207,6 +255,8 @@ export class GameView {
       if (e.type === 'wall' && e.k.human) this.shake(e.k.id, Math.min(1, e.impact / 20));
       if (e.type === 'bump') { if (e.a.human) this.shake(e.a.id, 0.4); if (e.b.human) this.shake(e.b.id, 0.4); }
       if (e.type === 'zap') this.zapFlash = 1;
+      if (e.type === 'cliff') this.effects.ring(e.k.x, e.k.y + 0.5, e.k.z, '#bfe9ff', 6, 0.5);
+      if (e.type === 'glideLand') this.effects.ring(e.k.x, e.k.y + 0.3, e.k.z, '#ffffff', 5, 0.4);
     }
   }
 
@@ -259,8 +309,36 @@ export class GameView {
     return g;
   }
 
+  honk(kartId) {
+    const kd = this.karts.find(e => e.k.id === kartId);
+    if (kd && this.effects) this.effects.ring(kd.k.x, kd.k.y + 1.6, kd.k.z, kd.k.color, 3, 0.3);
+  }
+
+  syncDrone(kd, dt) {
+    const { k, drone: d } = kd;
+    const rescuing = k.rescueT > 0;
+    if (rescuing && !d.active) { d.active = true; d.t = 0; d.out = 0; }
+    if (!rescuing && d.active) { d.active = false; d.out = 0.001; }
+    if (d.active) d.t += dt;
+    else if (d.out > 0) d.out += dt;
+    const visible = d.active || (d.out > 0 && d.out < 0.8);
+    d.group.visible = visible;
+    if (!visible) { d.out = 0; return; }
+    // swoop in from above, hold while carrying, then zip up and away
+    const arrive = Math.min(1, d.t / 0.35), e = 1 - (1 - arrive) ** 3;
+    const leave = d.out > 0 ? d.out / 0.8 : 0;
+    const hover = 3.3 + (1 - e) * 10 + leave * leave * 16 + Math.sin(this.time * 9) * 0.06;
+    d.group.position.set(k.x - Math.sin(k.heading) * leave * 6, k.y + hover, k.z - Math.cos(k.heading) * leave * 6);
+    d.group.rotation.set(Math.sin(this.time * 3) * 0.06 - leave * 0.4, k.heading, Math.cos(this.time * 2.3) * 0.05);
+    for (const r of d.rotors) r.rotation.y += dt * 40;
+    const cableLen = d.active ? Math.max(0.3, hover - 2.2) : 0.6;
+    d.cable.scale.y = cableLen;
+    d.claw.position.y = -0.45 - cableLen;
+  }
+
   syncKarts(dt) {
-    for (const { k, model, blob, tag } of this.karts) {
+    for (const kd of this.karts) {
+      const { k, model, blob, tag } = kd;
       const gr = model.group;
       gr.position.set(k.x, k.y, k.z);
       gr.rotation.order = 'YXZ';
@@ -270,8 +348,9 @@ export class GameView {
         speed: k.v, speedMax: 34, steer: k.steerVis, drift: k.drift, driftLevel: k.driftLevel,
         boosting: k.boostT > 0, airborne: !k.grounded, spin: k.spinVis, squash: k.squash,
         mega: k.megaT > 0, shield: k.shieldT > 0, finished: k.finished, lean: k.steerVis * 0.1,
-        zapped: k.zapT > 0,
+        zapped: k.zapT > 0, gliding: k.gliding, rescued: k.rescueT > 0,
       });
+      this.syncDrone(kd, dt);
       const zs = k.zapT > 0 ? 0.6 : 1;
       if (k.zapT > 0 || gr.userData.zs !== undefined) {
         gr.userData.zs = (gr.userData.zs ?? 1) + (zs - (gr.userData.zs ?? 1)) * Math.min(1, dt * 6);
@@ -281,7 +360,7 @@ export class GameView {
       blob.position.set(k.x, gy + 0.04, k.z);
       blob.rotation.y = k.heading;
       const air = Math.max(0, k.y - gy);
-      blob.material.opacity = 0.45;
+      blob.visible = !k.gliding && k.rescueT <= 0;
       blob.scale.setScalar(Math.max(0.4, 1 - air * 0.08) * (k.megaT > 0 ? 1.6 : 1));
       if (tag) { tag.position.set(k.x, k.y + 3.1 + (k.megaT > 0 ? 1.4 : 0), k.z); }
       if (this.effects) this.effects.kart(k, null, dt);
@@ -302,7 +381,8 @@ export class GameView {
     const r = this.renderer;
     // shadows: update every other frame
     this.shadowFrame++;
-    if (this.shadowFrame % 2 === 0) r.shadowMap.needsUpdate = true;
+    // shadows are shared by every viewport; refresh them less often with lots of screens
+    if (this.shadowFrame % (this.cams.length > 4 ? 3 : 2) === 0) r.shadowMap.needsUpdate = true;
 
     const views = [];
     if (this.mode === 'race' && this.cams.length) {

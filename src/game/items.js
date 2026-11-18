@@ -1,4 +1,10 @@
 // Item definitions + roll tables. Pure logic.
+// The five power-ups in rotation (the others still work if forced, e.g. in tests):
+//   nitro   — instant speed burst
+//   oil     — slick dropped behind you; spins out whoever drives over it
+//   bouncer — spiky ball fired straight ahead, bounces off walls
+//   rocket  — homing rocket that chases the racer in front of you
+//   mega    — grow huge for a few seconds: faster, can't be hit, flattens anyone you touch
 export const ITEMS = {
   nitro:          { name: 'Nitro',          charges: 1 },
   triple_nitro:   { name: 'Triple Nitro',   charges: 3 },
@@ -11,12 +17,14 @@ export const ITEMS = {
   zap:            { name: 'Thunder Zap',    charges: 1 },
 };
 
+export const ROTATION = ['nitro', 'oil', 'bouncer', 'rocket', 'mega'];
+
+// Mostly random, with a light nudge: the leader never gets Mega/Rocket, the back of the pack
+// sees them more often. [maxPlaceFraction, weights]
 const TABLES = [
-  // [maxFrac, weights]
-  [0.15, { oil: 34, bouncer: 34, shield: 18, nitro: 10, triple_bouncer: 4 }],
-  [0.45, { nitro: 20, bouncer: 16, rocket: 18, oil: 12, triple_nitro: 10, shield: 12, triple_bouncer: 8, mega: 4 }],
-  [0.75, { nitro: 16, rocket: 24, triple_nitro: 20, triple_bouncer: 12, shield: 8, mega: 12, zap: 3, bouncer: 5 }],
-  [1.01, { triple_nitro: 26, rocket: 22, mega: 20, zap: 10, nitro: 12, triple_bouncer: 10 }],
+  [0.15, { nitro: 30, oil: 36, bouncer: 34 }],
+  [0.55, { nitro: 24, oil: 18, bouncer: 24, rocket: 22, mega: 12 }],
+  [1.01, { nitro: 26, oil: 8, bouncer: 16, rocket: 28, mega: 22 }],
 ];
 
 export function rollItem(place, total, rnd = Math.random) {

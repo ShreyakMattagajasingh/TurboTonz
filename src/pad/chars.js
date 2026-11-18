@@ -3,13 +3,13 @@
 
 const FALLBACK = [
   { id: 'pip', name: 'Pip', species: 'fox', color: '#ff7a1a' },
-  { id: 'bruno', name: 'Bruno', species: 'bear', color: '#a86b3c' },
-  { id: 'lily', name: 'Lily', species: 'frog', color: '#3ddc84' },
-  { id: 'miso', name: 'Miso', species: 'cat', color: '#ffd23f' },
-  { id: 'bao', name: 'Bao', species: 'panda', color: '#e8eef5' },
-  { id: 'inky', name: 'Inky', species: 'octopus', color: '#b45cff' },
-  { id: 'rex', name: 'Rex', species: 'dino', color: '#27c26a' },
-  { id: 'coco', name: 'Coco', species: 'bunny', color: '#ff7eb6' },
+  { id: 'bao', name: 'Bao', species: 'panda', color: '#e8394a' },
+  { id: 'lily', name: 'Lily', species: 'frog', color: '#2fbf5a' },
+  { id: 'sprocket', name: 'Sprocket', species: 'robot', color: '#2f8bff' },
+  { id: 'pebble', name: 'Pebble', species: 'penguin', color: '#ffd23f' },
+  { id: 'rory', name: 'Rory', species: 'dino', color: '#8a4dff' },
+  { id: 'nova', name: 'Nova', species: 'cat', color: '#ff4fa3' },
+  { id: 'mochi', name: 'Mochi', species: 'bunny', color: '#2fd3c0' },
 ];
 
 const EMOJI = {
@@ -23,7 +23,7 @@ export function emojiFor(c) {
   return EMOJI[String(c.species || '').toLowerCase()] || '🏁';
 }
 
-const KEY = 'pk_portraits_160_v1';
+const KEY = 'pk_portraits_160_v2';
 
 export const chars = {
   list: FALLBACK.map((c) => ({ ...c, emoji: emojiFor(c) })),

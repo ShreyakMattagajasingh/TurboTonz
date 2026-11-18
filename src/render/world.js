@@ -41,7 +41,9 @@ function extrude(geo, baseLat, profile, side, { alongTile = 8, worldUV = 0, yBas
     }
   }
   const idx = [];
+  const gm = geo.gapMask; // no road, curbs, walls or skirts over a cliff gap
   for (let ii = 0; ii < N; ii++) for (let p = 0; p < P - 1; p++) {
+    if (gm && gm[ii]) continue;
     const a = ii * P + p, b = a + 1, c = a + P, d = c + 1;
     if (side > 0) idx.push(a, b, c, b, d, c); else idx.push(a, c, b, b, c, d);
   }
@@ -317,10 +319,125 @@ export function buildWorld(race, renderer) {
     world.boxes.push({ box: b, g, c, mat, phase: r() * 6, pop: 1 });
   }
 
+  // ---- cliff gaps (Niyagara Falls)
+  for (const gp of geo.gaps) buildFalls(world, race, gp, rampTex);
+
   // ---- decor
   buildDecor(world, race, theme, r);
 
   return world;
+}
+
+// ---------- Niyagara Falls: the gorge under a cliff gap ----------
+function canvasTex(w, h, draw) {
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  draw(c.getContext('2d'), w, h);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  return t;
+}
+
+function buildFalls(world, race, gp, rampTex) {
+  const scene = world.scene, geo = race.geo;
+  const A = geo.pointAt(gp.s0, 0), B = geo.pointAt(gp.s1, 0);
+  const heading = Math.atan2(B.x - A.x, B.z - A.z);
+  const fx = Math.sin(heading), fz = Math.cos(heading);
+  const rx = -fz, rz = fx;                   // track "right" (lat +)
+  const gapLen = Math.hypot(B.x - A.x, B.z - A.z);
+  const mid = { x: (A.x + B.x) / 2, z: (A.z + B.z) / 2 };
+  const wallLat = geo.w[Math.floor(gp.s0)] + geo.shoulder;
+  const rock = new THREE.MeshStandardMaterial({ color: '#7f90a6', roughness: 0.95, flatShading: true });
+  const snowCap = new THREE.MeshStandardMaterial({ color: '#f4f8ff', roughness: 0.8, flatShading: true });
+
+  // cliff faces: the plateau's cross-section (flat top, 5:1 slopes) extruded a little into each side
+  const face = (y, sign) => {
+    const L = wallLat + Math.max(5, (y - BASE_Y) * 5);
+    const shp = new THREE.Shape([new THREE.Vector2(-L, BASE_Y - 1), new THREE.Vector2(L, BASE_Y - 1), new THREE.Vector2(wallLat, y - 0.06), new THREE.Vector2(-wallLat, y - 0.06)]);
+    const g = new THREE.ExtrudeGeometry(shp, { depth: 12, bevelEnabled: false });
+    g.translate(0, 0, sign < 0 ? -12 : 0);
+    const m = new THREE.Mesh(g, rock);
+    const base = sign < 0 ? A : B;
+    m.position.set(base.x, 0, base.z); m.rotation.y = heading;
+    m.castShadow = m.receiveShadow = true;
+    scene.add(m);
+    // snowy lip
+    const lip = new THREE.Mesh(new THREE.BoxGeometry(wallLat * 2 + 2, 0.5, 1.4), snowCap);
+    lip.position.set(base.x - fx * sign * 0.7, y - 0.3, base.z - fz * sign * 0.7); lip.rotation.y = heading;
+    scene.add(lip);
+  };
+  face(gp.lipY, -1);
+  face(gp.landY, 1);
+
+  // river along the gorge floor (flows from the falls on the left to the right)
+  const riverTex = canvasTex(128, 128, (c, w, h) => {
+    c.fillStyle = '#2f8fd8'; c.fillRect(0, 0, w, h);
+    for (let i = 0; i < 70; i++) { c.fillStyle = `rgba(255,255,255,${0.12 + Math.random() * 0.25})`; c.fillRect(Math.random() * w, Math.random() * h, 18 + Math.random() * 40, 2 + Math.random() * 2); }
+  });
+  riverTex.repeat.set(10, 1);
+  const river = new THREE.Mesh(new THREE.PlaneGeometry(420, gapLen + 18).rotateX(-Math.PI / 2),
+    new THREE.MeshStandardMaterial({ map: riverTex, roughness: 0.15, metalness: 0.2, color: '#ffffff' }));
+  river.position.set(mid.x, BASE_Y + 0.25, mid.z); river.rotation.y = heading;
+  river.receiveShadow = true;
+  scene.add(river);
+
+  // the falls: a tall cliff upstream (left side) with a curtain of water pouring into the gorge
+  const fallsLat = -(wallLat + 46);
+  const fallsH = gp.lipY + 22;
+  const cliff = new THREE.Mesh(new THREE.BoxGeometry(gapLen + 40, fallsH + 2, 14), rock);
+  cliff.position.set(mid.x + rx * (fallsLat - 7), BASE_Y + fallsH / 2, mid.z + rz * (fallsLat - 7));
+  cliff.rotation.y = heading + Math.PI / 2; cliff.castShadow = true; scene.add(cliff);
+  const cap = new THREE.Mesh(new THREE.BoxGeometry(gapLen + 42, 1.2, 15), snowCap);
+  cap.position.set(cliff.position.x, BASE_Y + fallsH + 1.2, cliff.position.z); cap.rotation.y = cliff.rotation.y; scene.add(cap);
+  const waterTex = canvasTex(64, 256, (c, w, h) => {
+    const gr = c.createLinearGradient(0, 0, w, 0);
+    gr.addColorStop(0, '#9fd8ff'); gr.addColorStop(0.5, '#e9f7ff'); gr.addColorStop(1, '#9fd8ff');
+    c.fillStyle = gr; c.fillRect(0, 0, w, h);
+    for (let i = 0; i < 90; i++) { c.fillStyle = `rgba(255,255,255,${0.3 + Math.random() * 0.5})`; c.fillRect(Math.random() * w, Math.random() * h, 1 + Math.random() * 3, 20 + Math.random() * 60); }
+    for (let i = 0; i < 40; i++) { c.fillStyle = `rgba(60,140,210,${0.15 + Math.random() * 0.2})`; c.fillRect(Math.random() * w, Math.random() * h, 2 + Math.random() * 4, 30 + Math.random() * 50); }
+  });
+  waterTex.repeat.set(3, 1.5);
+  const water = new THREE.Mesh(new THREE.PlaneGeometry(gapLen + 6, fallsH),
+    new THREE.MeshStandardMaterial({ map: waterTex, emissive: '#bfe6ff', emissiveMap: waterTex, emissiveIntensity: 0.35, transparent: true, opacity: 0.92, roughness: 0.2, side: THREE.DoubleSide }));
+  water.position.set(mid.x + rx * (fallsLat + 0.4), BASE_Y + fallsH / 2, mid.z + rz * (fallsLat + 0.4));
+  water.lookAt(mid.x, water.position.y, mid.z);
+  scene.add(water);
+  // mist where the water hits the river
+  const mistMat = new THREE.SpriteMaterial({ map: T.particleTexture(), color: '#ffffff', transparent: true, opacity: 0.55, depthWrite: false });
+  const mists = [];
+  for (let i = 0; i < 9; i++) {
+    const m = new THREE.Sprite(mistMat);
+    const along = (i / 8 - 0.5) * (gapLen + 4);
+    m.position.set(mid.x + rx * (fallsLat + 4) + fx * along, BASE_Y + 2, mid.z + rz * (fallsLat + 4) + fz * along);
+    m.userData.ph = i * 1.7;
+    scene.add(m); mists.push(m);
+  }
+  world.animated.push((t) => {
+    waterTex.offset.y = t * 1.1;
+    riverTex.offset.x = -t * 0.18;
+    for (const m of mists) { const k = 9 + Math.sin(t * 1.3 + m.userData.ph) * 2.5; m.scale.set(k * 1.4, k, 1); }
+  });
+
+  // kicker at the lip so the jump reads clearly
+  const kick = 5;
+  const shape = new THREE.Shape([new THREE.Vector2(0, 0), new THREE.Vector2(kick, 0), new THREE.Vector2(kick, 0.7), new THREE.Vector2(kick - 0.3, 0.7)]);
+  const kg = new THREE.ExtrudeGeometry(shape, { depth: wallLat * 2, bevelEnabled: false });
+  kg.translate(0, 0, -wallLat); kg.rotateY(-Math.PI / 2);
+  const km = new THREE.Mesh(kg, new THREE.MeshStandardMaterial({ map: rampTex, roughness: 0.6 }));
+  const kp = geo.pointAt(gp.s0 - kick / 2, 0);
+  km.position.set(kp.x, kp.y, kp.z); km.rotation.y = heading;
+  km.castShadow = km.receiveShadow = true; scene.add(km);
+
+  // NIYAGARA FALLS gantry over the lip
+  const gw = wallLat + 1.5;
+  const gantry = new THREE.Group();
+  const gpnt = geo.pointAt(gp.s0 - 6, 0);
+  gantry.position.set(gpnt.x, gpnt.y, gpnt.z); gantry.rotation.y = heading;
+  const postMat = new THREE.MeshStandardMaterial({ color: '#2f6fd8', roughness: 0.5 });
+  for (const sd of [-1, 1]) { const post = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.35, 9, 8).translate(0, 4.5, 0), postMat); post.position.x = sd * gw; post.castShadow = true; gantry.add(post); }
+  const banner = new THREE.Mesh(new THREE.PlaneGeometry(gw * 2, 2.6), new THREE.MeshBasicMaterial({ map: T.bannerTexture('NIYAGARA FALLS', '#1d6fd8'), side: THREE.DoubleSide }));
+  banner.position.y = 8; banner.rotation.y = Math.PI;
+  gantry.add(banner);
+  scene.add(gantry);
 }
 
 function buildWalls(world, geo, theme, wall, r) {
@@ -378,7 +495,7 @@ function buildStart(world, geo, theme) {
   const beam = new THREE.Mesh(new THREE.BoxGeometry(span * 2 + 1.2, 2.2, 1.0), pillarMat);
   beam.position.y = 9; beam.castShadow = true; g.add(beam);
   for (const s of [1, -1]) {
-    const banner = new THREE.Mesh(new THREE.PlaneGeometry(span * 2 - 1, 2), new THREE.MeshBasicMaterial({ map: T.bannerTexture('PARTY KARTS', colors[theme]) }));
+    const banner = new THREE.Mesh(new THREE.PlaneGeometry(span * 2 - 1, 2), new THREE.MeshBasicMaterial({ map: T.bannerTexture('TURBO TONZ', colors[theme]) }));
     banner.position.set(0, 9, s * 0.52); if (s < 0) banner.rotation.y = Math.PI; g.add(banner);
   }
   // start lights
@@ -416,6 +533,7 @@ function buildDecor(world, race, theme, r) {
       const p = nearTrack(geo, x, z);
       const d = Math.abs(p.lat) - (p.hw + geo.shoulder);
       if (d < minD || d > maxD) continue;
+      if (geo.gaps.length && d < 110 && geo.gaps.some(gp => p.s > gp.s0 - 14 && p.s < gp.s1 + 14)) continue; // keep the gorge clear
       fn(x, groundAt(x, z, p), z, d, p);
       n++;
     }
@@ -516,7 +634,7 @@ function buildDecor(world, race, theme, r) {
       scene.add(arch);
     }
     // billboards
-    const words = ['TURBO', 'ZOOM!', 'DRIFT', 'NITRO', 'PARTY', 'GO GO'];
+    const words = ['TURBO', 'ZOOM!', 'DRIFT', 'NITRO', 'TONZ!', 'GO GO'];
     for (let k = 0; k < 10; k++) place(1, 6, 18, (x, y, z, d, p) => {
       const sg = new THREE.Group();
       const w = words[k % words.length];
@@ -551,12 +669,12 @@ function grandstand(S, geo, r, theme, world) {
   const i0 = geo.N - 14;
   for (const side of [-1, 1]) {
     if (side > 0 && theme === 'neon') continue;
-    const baseLat = geo.w[i0] + geo.shoulder + 4;
+    const baseLat = geo.w[i0] + geo.shoulder + 2.5;
     const heading = Math.atan2(geo.tx[i0], geo.tz[i0]);
     const g = new THREE.Group();
     const lat = side * baseLat;
     g.position.set(geo.x[i0] + geo.rx[i0] * lat, geo.y[i0], geo.z[i0] + geo.rz[i0] * lat);
-    g.rotation.y = heading + (side > 0 ? -Math.PI / 2 : Math.PI / 2);
+    g.rotation.y = heading + (side > 0 ? Math.PI / 2 : -Math.PI / 2); // stands rise away from the track
     const mat = new THREE.MeshStandardMaterial({ color: theme === 'neon' ? '#2a2440' : '#d9dde6', roughness: 0.7 });
     for (let s = 0; s < 4; s++) {
       const step = new THREE.Mesh(new THREE.BoxGeometry(30, 1.2 + s * 1.2, 2.2).translate(0, (1.2 + s * 1.2) / 2, 0), mat);

@@ -3,6 +3,8 @@ import QRCode from 'qrcode';
 import { createHost, randomCode, isLocalMode } from '../net/transport.js';
 import { TRACKS } from '../game/tracks.js';
 import { Race } from '../game/race.js';
+import { emptyInput } from '../game/kart.js';
+import { ITEMS, ROTATION } from '../game/items.js';
 import { TrackGeo } from '../game/trackgeo.js';
 import { GameView } from '../render/view.js';
 import { CHARACTERS, getCharacter, renderPortraits } from '../render/characters.js';
@@ -13,6 +15,8 @@ import './host.css';
 
 const SLOT_COLORS = ['#ff3b5c', '#2f8cff', '#2fd36b', '#ffc21a', '#a35bff', '#ff8a1f', '#1fd6e0', '#ff5fc8'];
 const MAX_PLAYERS = 8;
+const CC_STEPS = [50, 150, 200];
+const SHUFFLES = 3;
 const params = new URLSearchParams(location.search);
 const LOCAL = isLocalMode();
 
@@ -20,7 +24,7 @@ const $ = (s) => document.querySelector(s);
 const app = {
   phase: 'lobby',
   players: [],           // { slot, pid, name, char, color, ready, kind:'pad'|'kb1'|'kb2'|'gp', conn, input, gp }
-  settings: { track: Math.min(TRACKS.length - 1, +params.get('track') || 0), laps: +params.get('laps') || 3, cc: 100, cpu: params.get('cpu') !== '0' },
+  settings: { track: Math.min(TRACKS.length - 1, +params.get('track') || 0), laps: +params.get('laps') || 3, cc: CC_STEPS.includes(+params.get('cc')) ? +params.get('cc') : 150, cpu: params.get('cpu') !== '0' },
   code: params.get('room') || randomCode(),
   race: null, attract: null,
   portraits: {},
@@ -97,9 +101,14 @@ function onConnection(conn) {
     }
     if (!player) return;
     switch (m.t) {
-      case 'pick': if (app.phase === 'lobby' && CHARACTERS.some(c => c.id === m.char) && !charTaken(m.char, player)) { player.char = m.char; audio.sfx('select'); broadcastLobby(); renderLobby(); } break;
+      case 'shuffle': if (app.phase === 'lobby') shuffleChar(player); break;
+      case 'name': { const n = cleanName(m.name); if (n) { player.name = n; broadcastLobby(); renderLobby(); } break; }
       case 'ready': player.ready = !!m.ready; broadcastLobby(); renderLobby(); break;
-      case 'in': player.input = { s: +m.s || 0, g: m.g ? 1 : 0, b: m.b ? 1 : 0, d: m.d ? 1 : 0, i: m.i ? 1 : 0 }; break;
+      case 'in': {
+        const s = Math.max(-1, Math.min(1, +m.s || 0));
+        player.input = { s, d: m.d ? 1 : 0, i: m.i ? 1 : 0, l: m.l ? 1 : 0, u: m.u ? 1 : 0, g: 0, b: 0 };
+        break;
+      }
       case 'menu': if (isLeader(player)) menuAction(m.a); break;
       case 'ping': conn.send({ t: 'pong', ts: m.ts }); break;
     }
@@ -107,7 +116,7 @@ function onConnection(conn) {
   conn.onClose(() => {
     if (!player) return;
     player.connected = false; player.conn = null;
-    player.input = { s: 0, g: 0, b: 0, d: 0, i: 0 };
+    player.input = emptyInput();
     // in lobby, drop pads that disconnect for > 20s
     const pid = player.pid;
     setTimeout(() => {
@@ -126,9 +135,19 @@ function freeSlot() { for (let s = 0; s < MAX_PLAYERS; s++) if (!app.players.som
 
 function charTaken(id, except) { return app.players.some(p => p !== except && p.char === id); }
 
-function firstFreeChar(pref) {
-  if (pref && !charTaken(pref)) return pref;
-  return (CHARACTERS.find(c => !charTaken(c.id)) || CHARACTERS[0]).id;
+// Racers are handed out, not picked: a random free one, unique per player.
+function randomFreeChar(except) {
+  const free = CHARACTERS.filter(c => !charTaken(c.id, except) && c.id !== except?.char);
+  const pool = free.length ? free : CHARACTERS;
+  return pool[Math.floor(Math.random() * pool.length)].id;
+}
+
+function shuffleChar(p) {
+  if (p.shuffles <= 0 || p.ready) return;
+  p.char = randomFreeChar(p);
+  p.shuffles--;
+  audio.sfx('select');
+  broadcastLobby(); renderLobby();
 }
 
 function addPlayer({ kind, pid, name, conn, gpIndex }) {
@@ -137,8 +156,8 @@ function addPlayer({ kind, pid, name, conn, gpIndex }) {
   const p = {
     slot, pid: pid || kind + slot, kind, conn, gpIndex, connected: true,
     name: name || (kind === 'pad' ? 'Player ' + (slot + 1) : kind === 'gp' ? 'Pad ' + (slot + 1) : 'Keys ' + (slot + 1)),
-    color: SLOT_COLORS[slot], char: firstFreeChar(CHARACTERS[slot % CHARACTERS.length].id),
-    ready: kind !== 'pad', input: { s: 0, g: 0, b: 0, d: 0, i: 0 }, joinedAt: performance.now(),
+    color: SLOT_COLORS[slot], char: randomFreeChar(null), shuffles: SHUFFLES,
+    ready: kind !== 'pad', input: emptyInput(), joinedAt: performance.now(),
   };
   app.players.push(p);
   app.players.sort((a, b) => a.slot - b.slot);
@@ -162,6 +181,7 @@ function lobbyMsg(p) {
     players: app.players.map(q => ({ slot: q.slot, name: q.name, char: q.char, ready: q.ready, color: q.color })),
     track: TRACKS[app.settings.track].id, trackName: TRACKS[app.settings.track].name,
     laps: app.settings.laps, cpu: app.settings.cpu, cc: app.settings.cc, isLeader: isLeader(p),
+    myChar: p.char, shufflesLeft: p.shuffles ?? 0,
     taken: app.players.filter(q => q !== p).map(q => q.char),
   };
 }
@@ -179,7 +199,7 @@ function menuAction(a) {
   if (a === 'right') S.track = (S.track + 1) % TRACKS.length;
   if (a === 'laps') S.laps = S.laps % 5 + 1;
   if (a === 'cpu') S.cpu = !S.cpu;
-  if (a === 'cc') S.cc = { 50: 100, 100: 150, 150: 50 }[S.cc] || 100;
+  if (a === 'cc') S.cc = CC_STEPS[(CC_STEPS.indexOf(S.cc) + 1) % CC_STEPS.length];
   if (a === 'start') { startRace(); return; }
   if (a === 'left' || a === 'right') { audio.sfx('uiMove'); startAttract(); }
   else audio.sfx('uiMove');
@@ -207,7 +227,7 @@ function renderLobby() {
       el.innerHTML = `<div class="pslot">P${s + 1}</div>
         <img class="pport" src="${app.portraits[p.char] || ''}" alt="">
         <div class="pname">${escapeHtml(p.name)}</div>
-        <div class="pchar">${ch.name}</div>
+        <div class="pchar">${ch.name}${ch.vehicleLabel ? ` · ${escapeHtml(ch.vehicleLabel)}` : ''}</div>
         <div class="pstate">${ico} ${p.connected ? (p.ready ? '<span class="rdy">READY</span>' : '<span class="nrdy">choosing…</span>') : 'reconnecting…'}${isLeader(p) ? ' 👑' : ''}</div>`;
     } else el.innerHTML = `<div class="pslot">P${s + 1}</div><div class="pempty">Join!</div>`;
     grid.appendChild(el);
@@ -313,15 +333,36 @@ function onRaceEvents(events) {
     };
     const vol = human ? 1 : (k ? near(k.x, k.z) * 0.6 : 1);
     switch (e.type) {
-      case 'count': audio.sfx('countdown'); break;
-      case 'go': audio.sfx('go'); broadcast({ t: 'phase', phase: 'race' }); break;
+      case 'count': audio.sfx('countdown'); broadcast({ t: 'count', n: e.n }); break;
+      case 'go': audio.sfx('go'); broadcast({ t: 'count', n: 0 }); broadcast({ t: 'phase', phase: 'race' }); break;
       case 'box': if (vol > 0.05) audio.sfx('itemBox', { volume: vol }); break;
-      case 'roll': if (human) audio.sfx('roulette', { volume: 0.6 }); break;
+      case 'roll':
+        if (human) { audio.sfx('roulette', { volume: 0.6 }); send(k, { t: 'itemRoll', item: e.item, dur: e.dur }); hud.roll(k.id, e.item, e.dur); }
+        break;
+      case 'startBoost':
+        if (vol > 0.05) audio.sfx('boost', { volume: vol });
+        if (human) { flash(k, e.level === 2 ? 'ROCKET START!' : 'GOOD START!', 'good'); hud.banner(k.id, e.level === 2 ? 'ROCKET START!' : 'GOOD START!', 'good'); buzz(k, 120); }
+        break;
+      case 'startStall':
+        if (human) { audio.sfx('spin', { volume: 0.5 }); flash(k, 'TOO EARLY!', 'bad'); hud.banner(k.id, 'TOO EARLY!', 'bad'); buzz(k, 200); }
+        break;
+      case 'honk': audio.sfx('honk', { volume: Math.max(0.35, vol), pitch: 0.9 + (k.slot % 4) * 0.08 }); view.honk(k.id); break;
+      case 'rescue':
+        if (vol > 0.05 || human) audio.sfx('rescue', { volume: human ? 0.9 : vol });
+        if (human) {
+          const msg = e.reason === 'wrong' ? 'WRONG WAY — HOOKY TO THE RESCUE!' : e.reason === 'fall' ? 'SPLASH! HOOKY GOT YOU' : 'HOOKY TO THE RESCUE!';
+          flash(k, e.reason === 'wrong' ? 'TURNING YOU AROUND!' : 'RESCUE!', 'info'); hud.banner(k.id, msg, 'info'); buzz(k, 90);
+        }
+        break;
+      case 'cliff':
+        if (human) { audio.sfx('glide', { volume: 0.9 }); flash(k, 'NIYAGARA FALLS!', 'good'); hud.banner(k.id, 'NIYAGARA FALLS!', 'falls'); buzz(k, 60); }
+        break;
+      case 'glideLand': if (human) audio.sfx('land', { volume: 0.6 }); break;
       case 'itemGet': if (human) { audio.sfx('itemGet'); buzz(k, 30); } break;
       case 'miniTurbo': if (vol > 0.05) audio.sfx('miniTurbo' + e.level, { volume: vol }); if (human) buzz(k, 20 + e.level * 15); break;
       case 'driftStart': if (human) audio.sfx('driftStart', { volume: 0.7 }); break;
       case 'hop': if (human) audio.sfx('hop', { volume: 0.5 }); break;
-      case 'pad': case 'nitro': case 'startBoost': case 'trickBoost': if (vol > 0.05) audio.sfx('boost', { volume: vol }); break;
+      case 'pad': case 'nitro': case 'trickBoost': if (vol > 0.05) audio.sfx('boost', { volume: vol }); break;
       case 'trick': if (human) audio.sfx('hop', { pitch: 1.5 }); break;
       case 'hit': if (vol > 0.05) audio.sfx(e.kind === 'explosion' ? 'explosion' : 'spin', { volume: vol }); if (human) buzz(k, e.kind === 'explosion' ? 300 : 160); break;
       case 'shieldBlock': audio.sfx('shieldBlock', { volume: vol }); break;
@@ -333,7 +374,7 @@ function onRaceEvents(events) {
       case 'zap': audio.sfx('zap'); for (const o of race.karts) if (o.human && o.place < k.place) buzz(o, 250); break;
       case 'lap': if (human) { audio.sfx('lap'); hud.banner(k.id, 'LAP ' + e.lap); } break;
       case 'finalLap':
-        if (human) { audio.sfx('finalLap'); hud.banner(k.id, 'FINAL LAP!', 'final'); }
+        if (human) { audio.sfx('finalLap'); hud.banner(k.id, 'FINAL LAP!', 'final'); flash(k, 'FINAL LAP!', 'info'); }
         if (!app.finalLapMusic) { app.finalLapMusic = true; audio.setMusicTempo(1.12); }
         break;
       case 'finish': if (human) { audio.sfx('finish'); buzz(k, 400); } break;
@@ -345,10 +386,12 @@ function onRaceEvents(events) {
   view.handleEvents(events);
 }
 
-function buzz(k, ms) {
+function send(k, msg) {
   const p = app.players.find(q => q.slot === k.slot);
-  if (p?.conn) p.conn.send({ t: 'buzz', ms });
+  if (p?.conn) p.conn.send(msg);
 }
+function buzz(k, ms) { send(k, { t: 'buzz', ms }); }
+function flash(k, text, kind = 'info') { send(k, { t: 'flash', text, kind }); }
 
 function sendHud() {
   const race = app.race;
@@ -356,7 +399,7 @@ function sendHud() {
     const k = kartFor(p);
     if (!k || !p.conn) continue;
     p.conn.send({ t: 'hud', place: k.place, total: race.karts.length, lap: Math.min(race.laps, Math.max(1, k.lap + 1)), laps: race.laps,
-      item: k.itemRoll > 0 ? null : k.item, itemSpin: k.itemRoll > 0, charges: k.itemCharges, speed: Math.round(Math.max(0, k.v) * 3.6), finished: k.finished });
+      item: k.itemRoll > 0 ? null : k.item, rolling: k.itemRoll > 0, charges: k.itemCharges, finished: k.finished, wrong: k.wrongT > 0.5 });
   }
 }
 
@@ -382,6 +425,7 @@ function showResults() {
   view.focus(winner.id, 'orbit');
   hud.clear();
   showScreen('results');
+  focusFirst('#results');
   audio.stopMusic();
   audio.playMusic('results');
   broadcast({ t: 'phase', phase: 'results' });
@@ -402,6 +446,7 @@ function backToLobby() {
   app.players = app.players.filter(p => p.connected);
   startAttract();
   showScreen('lobby');
+  focusFirst('#lobby');
   broadcast({ t: 'phase', phase: 'lobby' });
   broadcastLobby();
   renderLobby();
@@ -414,35 +459,49 @@ function nextTrack() {
 
 // ---------------- local input: keyboard & gamepads ----------------
 const keys = new Set();
+// Same diamond as the phones: up = hop, down = drift, left = boost/honk, right = item.
 const KB = {
-  kb1: { left: 'KeyA', right: 'KeyD', gas: 'KeyW', brake: 'KeyS', drift: 'Space', item: 'KeyE', alt: 'ShiftLeft' },
-  kb2: { left: 'ArrowLeft', right: 'ArrowRight', gas: 'ArrowUp', brake: 'ArrowDown', drift: 'Slash', item: 'Period', alt: 'ShiftRight' },
+  kb1: { left: 'KeyA', right: 'KeyD', hop: 'KeyW', drift: 'KeyS', drift2: 'Space', boost: 'KeyQ', item: 'KeyE', shuffle: 'KeyR' },
+  kb2: { left: 'ArrowLeft', right: 'ArrowRight', hop: 'ArrowUp', drift: 'ArrowDown', drift2: 'Slash', boost: 'Comma', item: 'Period', shuffle: 'Quote' },
 };
+const BACK_KEYS = new Set(['Escape', 'Backspace', 'GoBack', 'BrowserBack']);
+const BACK_CODES = new Set([4, 8, 27, 166, 461, 10009]); // Android/TV remotes report Back with these keyCodes
 addEventListener('keydown', (e) => {
   if (e.target.tagName === 'INPUT') return;
+  audio.unlock(); updateSoundGate();
+  // projector / TV remote: Back never leaves the game, it steps back inside it
+  if (BACK_KEYS.has(e.key) || BACK_CODES.has(e.keyCode)) { e.preventDefault(); if (!e.repeat) goBack(); return; }
+  if (e.key === 'MediaPlayPause' || e.key === 'ContextMenu') { e.preventDefault(); if (!e.repeat && app.phase === 'race') togglePause(); return; }
+  const menuScreen = app.phase !== 'race' || app.paused;
+  const arrow = e.code.startsWith('Arrow');
+  // D-pad drives the on-screen buttons on menu screens (unless the arrow-keys player is in)
+  if (menuScreen && arrow && !(app.phase === 'lobby' && app.players.some(p => p.kind === 'kb2'))) {
+    e.preventDefault(); spatialNav(e.code); return;
+  }
   if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Slash'].includes(e.code)) e.preventDefault();
   if (e.repeat) return;
   keys.add(e.code);
-  audio.unlock();
+  if (e.code === 'Enter' && !visibleButtons().includes(document.activeElement)) {
+    if (app.phase === 'lobby') startRace();
+    else if (app.phase === 'results') backToLobby();
+  }
   if (app.phase === 'lobby') {
     if (e.code === 'Space' || e.code === 'KeyW') joinKeyboard('kb1');
-    if (e.code === 'ArrowUp' || e.code === 'Slash') joinKeyboard('kb2');
+    if (e.code === 'Slash') joinKeyboard('kb2');
     for (const kind of ['kb1', 'kb2']) {
       const p = app.players.find(q => q.kind === kind);
       if (!p) continue;
-      if (e.code === KB[kind].left || e.code === KB[kind].right) cycleChar(p, e.code === KB[kind].right ? 1 : -1);
-      if (e.code === (kind === 'kb1' ? 'KeyQ' : 'Backspace')) removePlayer(p);
+      if (e.code === KB[kind].shuffle) cycleChar(p);
     }
-    if (e.code === 'Enter') startRace();
     if (e.code === 'BracketLeft') menuAction('left');
     if (e.code === 'BracketRight') menuAction('right');
   } else if (app.phase === 'race') {
-    if (e.code === 'Escape' || e.code === 'KeyP') togglePause();
+    if (e.code === 'KeyP') togglePause();
   } else if (app.phase === 'results') {
-    if (e.code === 'Enter') backToLobby();
     if (e.code === 'KeyN') nextTrack();
   }
   if (e.code === 'KeyM') { audio.setMuted(!audio.muted); updateMuteBtn(); }
+  if (e.code === 'KeyF') toggleFullscreen();
 });
 addEventListener('keyup', (e) => keys.delete(e.code));
 addEventListener('blur', () => keys.clear());
@@ -453,12 +512,8 @@ function joinKeyboard(kind) {
   if (p) { audio.sfx('join'); broadcastLobby(); renderLobby(); }
 }
 
-function cycleChar(p, dir) {
-  let idx = CHARACTERS.findIndex(c => c.id === p.char);
-  for (let n = 0; n < CHARACTERS.length; n++) {
-    idx = (idx + dir + CHARACTERS.length) % CHARACTERS.length;
-    if (!charTaken(CHARACTERS[idx].id, p)) { p.char = CHARACTERS[idx].id; break; }
-  }
+function cycleChar(p) {
+  p.char = randomFreeChar(p);
   audio.sfx('select');
   broadcastLobby(); renderLobby();
 }
@@ -469,8 +524,8 @@ function pollLocalInputs() {
       const m = KB[p.kind];
       p.input = {
         s: (keys.has(m.right) ? 1 : 0) - (keys.has(m.left) ? 1 : 0),
-        g: keys.has(m.gas) ? 1 : 0, b: keys.has(m.brake) ? 1 : 0,
-        d: keys.has(m.drift) || keys.has(m.alt) ? 1 : 0, i: keys.has(m.item) ? 1 : 0,
+        d: keys.has(m.drift) || keys.has(m.drift2) ? 1 : 0, u: keys.has(m.hop) ? 1 : 0,
+        l: keys.has(m.boost) ? 1 : 0, i: keys.has(m.item) ? 1 : 0, g: 0, b: 0,
       };
     }
   }
@@ -489,10 +544,7 @@ function pollLocalInputs() {
     const prev = p.prevBtns || [];
     const pressed = (i) => btn(i) && !prev[i];
     if (app.phase === 'lobby') {
-      if (pressed(14) || pressed(15)) cycleChar(p, pressed(15) ? 1 : -1);
-      const ax = gp.axes[0] || 0;
-      if (Math.abs(ax) > 0.7 && !p.axHeld) { cycleChar(p, ax > 0 ? 1 : -1); p.axHeld = true; }
-      if (Math.abs(ax) < 0.3) p.axHeld = false;
+      if (pressed(14) || pressed(15) || pressed(3)) cycleChar(p);
       if (pressed(9)) startRace();
       if (pressed(1)) removePlayer(p);
     } else if (app.phase === 'results') {
@@ -501,7 +553,8 @@ function pollLocalInputs() {
     let s = gp.axes[0] || 0;
     if (Math.abs(s) < 0.12) s = 0;
     if (btn(14)) s = -1; if (btn(15)) s = 1;
-    p.input = { s, g: btn(0) || btn(7) ? 1 : 0, b: btn(1) || btn(6) ? 1 : 0, d: btn(5) || btn(4) ? 1 : 0, i: btn(2) || btn(3) ? 1 : 0 };
+    // diamond: A (bottom) = drift, B (right) = item, X (left) = boost/honk, Y (top) = hop; shoulders mirror drift/item
+    p.input = { s, d: btn(0) || btn(5) || btn(7) ? 1 : 0, i: btn(1) || btn(4) || btn(6) ? 1 : 0, l: btn(2) ? 1 : 0, u: btn(3) ? 1 : 0, g: 0, b: 0 };
     p.prevBtns = gp.buttons.map(b => b.pressed);
   }
 }
@@ -510,6 +563,66 @@ function togglePause() {
   app.paused = !app.paused;
   showScreen(app.paused ? 'pause' : null);
   if (app.paused) audio.setMasterVolume(0.3); else audio.setMasterVolume(1);
+  if (app.paused) focusFirst('#pause');
+}
+
+// ---------------- projector / TV remote ----------------
+// Back: race → pause, pause → resume, results → lobby, lobby → leave fullscreen.
+function goBack() {
+  audio.sfx('uiMove');
+  if (app.phase === 'race') togglePause();
+  else if (app.phase === 'results') backToLobby();
+  else if (document.fullscreenElement) document.exitFullscreen?.();
+}
+// The remote's Back button usually navigates the browser history. Keep one dummy entry on
+// the stack so Back lands on us instead of leaving the page.
+function trapHistory() {
+  try {
+    history.replaceState({ pk: 'base' }, '');
+    history.pushState({ pk: 'trap' }, '');
+    addEventListener('popstate', () => { history.pushState({ pk: 'trap' }, ''); goBack(); });
+  } catch {}
+}
+
+function visibleButtons() {
+  const root = app.paused ? $('#pause') : app.phase === 'results' ? $('#results') : app.phase === 'lobby' ? $('#lobby') : null;
+  if (!root) return [];
+  return [...root.querySelectorAll('button:not(:disabled)')].filter(b => b.offsetParent !== null);
+}
+function focusFirst(sel) {
+  requestAnimationFrame(() => { const b = $(sel)?.querySelector('button.start:not(:disabled)') || $(sel)?.querySelector('button'); b?.focus({ preventScroll: true }); });
+}
+// Spatial D-pad navigation between on-screen buttons
+function spatialNav(code) {
+  const btns = visibleButtons();
+  if (!btns.length) return;
+  const cur = btns.includes(document.activeElement) ? document.activeElement : null;
+  if (!cur) { (btns.find(b => b.id === 'btn-start' || b.classList.contains('start')) || btns[0]).focus(); audio.sfx('uiMove'); return; }
+  const r0 = cur.getBoundingClientRect(), cx = r0.left + r0.width / 2, cy = r0.top + r0.height / 2;
+  const dir = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[code];
+  let best = null, bd = Infinity;
+  for (const b of btns) {
+    if (b === cur) continue;
+    const r = b.getBoundingClientRect(), dx = r.left + r.width / 2 - cx, dy = r.top + r.height / 2 - cy;
+    const along = dx * dir[0] + dy * dir[1];
+    if (along <= 4) continue;
+    const across = Math.abs(dx * dir[1]) + Math.abs(dy * dir[0]);
+    const d = along + across * 2.2;
+    if (d < bd) { bd = d; best = b; }
+  }
+  if (best) { best.focus(); audio.sfx('uiMove'); }
+}
+
+function toggleFullscreen() {
+  if (document.fullscreenElement) document.exitFullscreen?.();
+  else document.documentElement.requestFullscreen?.().catch(() => {});
+}
+
+// Browsers keep audio off until someone clicks or presses a key on the TV page itself.
+// Phones starting the race don't count, so show a nudge until sound is on.
+function updateSoundGate() {
+  const on = audio.unlocked && audio.ctx?.state === 'running';
+  $('#sound-gate')?.classList.toggle('hide', on || audio.muted);
 }
 
 // ---------------- main loop ----------------
@@ -554,10 +667,13 @@ async function boot() {
   $('#btn-resume').addEventListener('click', () => togglePause());
   $('#btn-quit').addEventListener('click', () => { app.paused = false; audio.setMasterVolume(1); backToLobby(); });
   $('#btn-mute').addEventListener('click', () => { audio.unlock(); audio.setMuted(!audio.muted); updateMuteBtn(); });
-  $('#btn-full').addEventListener('click', () => { document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen?.(); });
-  addEventListener('pointerdown', () => audio.unlock(), { once: false });
+  $('#btn-full').addEventListener('click', () => toggleFullscreen());
+  addEventListener('pointerdown', () => { audio.unlock(); setTimeout(updateSoundGate, 50); }, { once: false });
+  $('#sound-gate').addEventListener('click', () => { audio.unlock(); setTimeout(updateSoundGate, 50); });
+  setInterval(updateSoundGate, 1000);
+  trapHistory();
   // icons in the help strip
-  $('#help-items').innerHTML = ['nitro', 'oil', 'bouncer', 'rocket', 'shield', 'mega', 'zap'].map(id => `<span class="hi">${ITEM_ICONS[id] || ''}</span>`).join('');
+  $('#help-items').innerHTML = ROTATION.map(id => `<span class="hi" title="${ITEMS[id].name}">${ITEM_ICONS[id] || ''}</span>`).join('');
   showScreen('lobby');
   renderLobby();
   startAttract();

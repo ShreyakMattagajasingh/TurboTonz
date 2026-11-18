@@ -97,6 +97,17 @@ export class TrackGeo {
     this.minX = Math.min(...this.x); this.maxX = Math.max(...this.x);
     this.minZ = Math.min(...this.z); this.maxZ = Math.max(...this.z);
     this.ice = def.ice || [];
+    // cliff gaps, in continuous sample coords
+    this.gaps = (def.gaps || []).map(gp => ({ ...gp, s0: gp.u0 * N, s1: gp.u1 * N, lipY: this.y[Math.floor(gp.u0 * N)], landY: this.y[Math.ceil(gp.u1 * N) % N] }));
+    this.gapMask = new Uint8Array(N);
+    for (const gp of this.gaps) for (let i = Math.floor(gp.s0); i < Math.ceil(gp.s1); i++) this.gapMask[this.wrap(i)] = 1;
+  }
+
+  // the gap containing continuous sample coord s, or null
+  gapAt(s) {
+    if (!this.gaps.length) return null;
+    for (const gp of this.gaps) if (s >= gp.s0 && s <= gp.s1) return gp;
+    return null;
   }
 
   _key(cx, cz) { return cx * 73856093 ^ cz * 19349663; }

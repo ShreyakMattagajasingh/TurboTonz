@@ -10,7 +10,7 @@ export default defineConfig({
   use: {
     baseURL: 'http://localhost:5190',
     viewport: { width: 1280, height: 720 },
-    launchOptions: { executablePath, args: ['--use-angle=d3d11', '--ignore-gpu-blocklist', '--autoplay-policy=no-user-gesture-required'] },
+    launchOptions: { executablePath, args: [process.platform === 'darwin' ? '--use-angle=gl' : '--use-angle=d3d11', '--ignore-gpu-blocklist', '--autoplay-policy=no-user-gesture-required'] },
     screenshot: 'only-on-failure',
   },
   webServer: { command: 'npx vite --port 5190 --strictPort', url: 'http://localhost:5190', reuseExistingServer: true, timeout: 60_000 },

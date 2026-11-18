@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Party Karts</title>
+  <title>Turbo Tonz</title>
   <meta name="description" content="A couch kart racer — the laptop is the TV, phones are the controllers." />
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏁</text></svg>" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -14,6 +14,8 @@
   <div id="stage"></div>
   <div id="hud"></div>
 
+  <button id="sound-gate" class="sound-gate" type="button">🔇 Sound is off · click here or press <b>OK</b> on the remote for music</button>
+
   <div id="topbar">
     <button id="btn-mute" title="Mute (M)">🔊</button>
     <button id="btn-full" title="Fullscreen">⛶</button>
@@ -22,7 +24,7 @@
   <!-- LOBBY -->
   <section id="lobby" class="screen">
     <header class="lobby-head">
-      <h1 class="logo"><span>PARTY</span><span>KARTS</span></h1>
+      <h1 class="logo"><span>TURBO</span><span>TONZ</span></h1>
       <div class="tagline">Grab your phones. Scan. Race.</div>
     </header>
     <div class="lobby-grid">
@@ -39,9 +41,9 @@
         <div class="card-title">RACERS</div>
         <div id="players" class="players"></div>
         <div class="kb-hint">
-          <div><kbd>Space</kbd> join with keyboard (<kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> · drift <kbd>Space</kbd> · item <kbd>E</kbd>)</div>
-          <div><kbd>↑</kbd> join with arrows (drift <kbd>/</kbd> · item <kbd>.</kbd>) · 🎮 press <kbd>A</kbd> on a gamepad</div>
-          <div><kbd>A</kbd>/<kbd>D</kbd> or <kbd>←</kbd>/<kbd>→</kbd> change character · <kbd>Enter</kbd> start</div>
+          <div>📱 Phones: stick (or tilt) to steer · <b>▼</b> drift · <b>▶</b> item · <b>▲</b> hop · <b>◀</b> boost on “2”</div>
+          <div><kbd>Space</kbd> keyboard player (<kbd>A</kbd><kbd>D</kbd> steer · <kbd>S</kbd> drift · <kbd>E</kbd> item · <kbd>W</kbd> hop · <kbd>Q</kbd> boost · <kbd>R</kbd> new racer)</div>
+          <div>🎮 press <kbd>A</kbd> on a gamepad · 📽️ remote: D-pad + <kbd>OK</kbd> to pick, <kbd>Back</kbd> to pause/go back</div>
         </div>
       </div>
       <div class="card track-card">
@@ -49,19 +51,19 @@
         <canvas id="track-preview" width="360" height="230"></canvas>
         <div class="track-sel">
           <button id="trk-prev" class="arrow">◀</button>
-          <div id="track-name" class="track-name">Sunny Meadow</div>
+          <div id="track-name" class="track-name">Tonztown Circuit</div>
           <button id="trk-next" class="arrow">▶</button>
         </div>
         <div class="settings">
           <button id="btn-laps" class="set"><span>Laps</span><b id="set-laps">3</b></button>
-          <button id="btn-cc" class="set"><span>Speed</span><b id="set-cc">100cc</b></button>
+          <button id="btn-cc" class="set"><span>Speed</span><b id="set-cc">150cc</b></button>
           <button id="btn-cpu" class="set"><span>CPU racers</span><b id="set-cpu">ON</b></button>
         </div>
         <button id="btn-start" class="start" disabled>Waiting for players…</button>
       </div>
     </div>
     <footer class="help">
-      <div class="help-l"><b>Drift</b>: hold drift while turning — release on <span class="c1">blue</span>, <span class="c2">orange</span> or <span class="c3">purple</span> sparks for a boost!</div>
+      <div class="help-l"><b>Drift</b>: hold <b>▼</b> through a turn, let go on <span class="c1">blue</span>, <span class="c2">orange</span> or <span class="c3">purple</span> sparks for a boost · <b>Start boost</b>: hold <b>◀</b> when the <b>2</b> appears</div>
       <div id="help-items" class="help-items"></div>
     </footer>
   </section>
@@ -73,7 +75,7 @@
       <div id="results-list" class="results-list"></div>
       <div class="results-actions">
         <button id="btn-next" class="start">NEXT TRACK <small>(N)</small></button>
-        <button id="btn-lobby" class="ghost">LOBBY <small>(Enter)</small></button>
+        <button id="btn-lobby" class="ghost">LOBBY <small>(Back)</small></button>
       </div>
     </div>
   </section>

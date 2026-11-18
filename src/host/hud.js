@@ -1,5 +1,19 @@
 // DOM HUD: one panel per split-screen viewport + shared minimap + center messages.
-import { ITEM_ICONS, ITEM_IDS } from '../pad/icons.js';
+import { ITEM_ICONS } from '../pad/icons.js';
+import { ROTATION } from '../game/items.js';
+
+// Hooky, the rescue drone, carrying the start lights (drawn once, reused per panel)
+const LIGHTS_SVG = `<svg viewBox="0 0 200 150" aria-hidden="true">
+  <g class="rotor"><rect x="18" y="8" width="64" height="7" rx="3.5" fill="#d8e3f5"/><rect x="118" y="8" width="64" height="7" rx="3.5" fill="#d8e3f5"/></g>
+  <rect x="46" y="14" width="8" height="14" fill="#5a6378"/><rect x="146" y="14" width="8" height="14" fill="#5a6378"/>
+  <rect x="40" y="24" width="120" height="36" rx="18" fill="#ffd23f" stroke="#1a0f2e" stroke-width="5"/>
+  <circle cx="84" cy="42" r="9" fill="#fff" stroke="#1a0f2e" stroke-width="3"/><circle cx="116" cy="42" r="9" fill="#fff" stroke="#1a0f2e" stroke-width="3"/>
+  <circle cx="86" cy="43" r="4.5" fill="#1a0f2e"/><circle cx="118" cy="43" r="4.5" fill="#1a0f2e"/>
+  <path d="M100 60 L100 74" stroke="#1a0f2e" stroke-width="4"/>
+  <rect x="34" y="72" width="132" height="58" rx="16" fill="#1d1830" stroke="#1a0f2e" stroke-width="5"/>
+  <circle class="lamp l1" cx="66" cy="101" r="17"/><circle class="lamp l2" cx="100" cy="101" r="17"/><circle class="lamp l3" cx="134" cy="101" r="17"/>
+</svg>`;
+const REEL_LEN = 16;
 
 const ORD = (n) => n + (['th', 'st', 'nd', 'rd'][(n % 100 - 20) % 10] || ['th', 'st', 'nd', 'rd'][n % 100] || 'th');
 const PLACE_COLORS = ['#ffd23f', '#d9e3ee', '#ff9a52', '#7fd6ff', '#9be37a', '#c69bff', '#ff8fb1', '#ffffff'];
@@ -68,6 +82,8 @@ export class Hud {
       <div class="hud-center"></div>
       <div class="hud-banner"></div>
       <div class="hud-wrong">WRONG WAY!</div>
+      <div class="hud-lights">${LIGHTS_SVG}</div>
+      <div class="hud-grid"></div>
       <div class="hud-place"><b>1</b><sup>st</sup></div>`;
     this.root.appendChild(el);
     p = {
@@ -75,7 +91,8 @@ export class Hud {
       lap: el.querySelector('.hud-lap .cur'), tot: el.querySelector('.hud-lap .tot'), name: el.querySelector('.hud-name'),
       time: el.querySelector('.hud-time'), center: el.querySelector('.hud-center'), banner: el.querySelector('.hud-banner'),
       wrong: el.querySelector('.hud-wrong'), place: el.querySelector('.hud-place'), lines: el.querySelector('.hud-speedlines'),
-      last: {}, wrongT: 0, rollIdx: 0, rollT: 0,
+      lights: el.querySelector('.hud-lights'), grid: el.querySelector('.hud-grid'),
+      last: {}, rolling: false,
     };
     this.panels.set(kartId, p);
     return p;
@@ -87,7 +104,26 @@ export class Hud {
     p.banner.textContent = text;
     p.banner.className = 'hud-banner show ' + cls;
     clearTimeout(p.bannerTimer);
-    p.bannerTimer = setTimeout(() => { p.banner.className = 'hud-banner'; }, 1800);
+    p.bannerTimer = setTimeout(() => { p.banner.className = 'hud-banner'; }, cls === 'falls' ? 2400 : 1800);
+  }
+
+  // Slot-machine reel in the item box: a strip of icons that spins down and lands on `item`.
+  roll(kartId, item, dur = 1.3) {
+    const p = this.panels.get(kartId);
+    if (!p) return;
+    const ids = [];
+    for (let i = 0; i < REEL_LEN - 1; i++) ids.push(ROTATION[(i * 3 + Math.floor(Math.random() * 5)) % ROTATION.length]);
+    ids.push(item);
+    p.icon.innerHTML = `<div class="reel">${ids.map(id => `<div class="cell">${ITEM_ICONS[id] || ''}</div>`).join('')}</div>`;
+    const reel = p.icon.firstChild;
+    p.item.classList.add('rolling'); p.item.classList.remove('has', 'pop');
+    p.rolling = true; p.last.icon = 'roll';
+    reel.style.transform = 'translateY(0)';
+    void reel.offsetWidth;
+    reel.style.transition = `transform ${dur}s cubic-bezier(.12,.72,.22,1.04)`;
+    reel.style.transform = `translateY(-${(REEL_LEN - 1) * 100}%)`;
+    clearTimeout(p.rollTimer);
+    p.rollTimer = setTimeout(() => { p.rolling = false; p.last.icon = null; }, dur * 1000 + 30);
   }
 
   update(viewports, dt, zapFlash = 0) {
@@ -119,19 +155,13 @@ export class Hud {
       // time
       const tt = k.finished ? k.finishTime : race.time;
       p.time.textContent = viewports.length <= 2 ? fmtTime(tt) : '';
-      // item slot
-      let iconKey = k.item || '';
-      if (k.itemRoll > 0) {
-        p.rollT -= dt;
-        if (p.rollT <= 0) { p.rollIdx = (p.rollIdx + 1) % ITEM_IDS.length; p.rollT = 0.07; }
-        iconKey = 'roll:' + ITEM_IDS[p.rollIdx];
-      }
-      if (p.last.icon !== iconKey) {
-        const id = iconKey.startsWith('roll:') ? iconKey.slice(5) : iconKey;
-        p.icon.innerHTML = id ? ITEM_ICONS[id] || '' : '';
-        p.item.classList.toggle('rolling', iconKey.startsWith('roll:'));
-        p.item.classList.toggle('has', !!k.item && k.itemRoll <= 0);
-        if (k.item && k.itemRoll <= 0) { p.item.classList.remove('pop'); void p.item.offsetWidth; p.item.classList.add('pop'); }
+      // item slot (the reel animates itself while rolling)
+      const iconKey = k.item || '';
+      if (!p.rolling && p.last.icon !== iconKey) {
+        p.icon.innerHTML = iconKey ? ITEM_ICONS[iconKey] || '' : '';
+        p.item.classList.remove('rolling');
+        p.item.classList.toggle('has', !!k.item);
+        if (k.item && p.last.icon === null) { p.item.classList.remove('pop'); void p.item.offsetWidth; p.item.classList.add('pop'); }
         p.last.icon = iconKey;
       }
       const cnt = k.item && k.itemCharges > 1 ? '×' + k.itemCharges : '';
@@ -140,20 +170,26 @@ export class Hud {
       let center = '';
       let ccls = '';
       if (race.phase === 'countdown') {
-        const n = Math.ceil(race.countdown - 0.6);
+        const n = Math.ceil(race.countdown);
         if (n >= 1 && n <= 3) { center = String(n); ccls = 'count c' + n; }
       } else if (race.time < 1.0 && race.phase === 'race' && !race.attract) { center = 'GO!'; ccls = 'go'; }
+      // the drone with the start lights hangs in each screen during the countdown
+      const lit = race.phase === 'countdown' ? Math.max(0, Math.min(3, 4 - Math.ceil(race.countdown))) : 4;
+      const lightsOn = race.phase === 'countdown' || race.time < 1.2;
+      if (p.last.lit !== lit || p.last.lightsOn !== lightsOn) {
+        p.lights.className = 'hud-lights' + (lightsOn ? ' show' : '') + ' lit' + lit;
+        p.last.lit = lit; p.last.lightsOn = lightsOn;
+      }
+      const gridTxt = race.phase === 'countdown' && race.countdown > 1 ? `${k.name} · GRID ${k.gridPos ?? k.place}` : '';
+      if (p.last.grid !== gridTxt) { p.grid.textContent = gridTxt; p.grid.classList.toggle('show', !!gridTxt); p.last.grid = gridTxt; }
       if (k.finished) { center = k.place <= 3 ? 'FINISH!' : 'FINISH'; ccls = 'finish'; }
       if (p.last.center !== center) {
         p.center.textContent = center; p.center.className = 'hud-center ' + ccls;
         if (center) { p.center.classList.remove('anim'); void p.center.offsetWidth; p.center.classList.add('anim'); }
         p.last.center = center;
       }
-      // wrong way
-      const g = race.geo, i = k.ti >= 0 ? k.ti : 0;
-      const dot = Math.sin(k.heading) * g.tx[i] + Math.cos(k.heading) * g.tz[i];
-      if (dot < -0.3 && k.v > 3 && race.phase === 'race' && !k.finished) p.wrongT += dt; else p.wrongT = Math.max(0, p.wrongT - dt * 3);
-      p.wrong.classList.toggle('show', p.wrongT > 1.2);
+      // wrong way (the sim counts it; past ~1.8 s the drone turns you around)
+      p.wrong.classList.toggle('show', k.wrongT > 0.5 && k.rescueT <= 0);
       // speed lines
       const boosting = k.boostT > 0 || k.megaT > 0;
       p.lines.style.opacity = boosting ? '1' : String(Math.max(0, (k.v - 30) / 10) * 0.4);

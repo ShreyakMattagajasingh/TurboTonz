@@ -3,16 +3,21 @@ import { TrackGeo } from './trackgeo.js';
 import { makeKart, stepKart, giveBoost, hitKart } from './kart.js';
 import { ITEMS, rollItem } from './items.js';
 
-export const COUNTDOWN = 3.6;
+// Countdown: 1 s "ready" intro, then 3 · 2 · 1 (one second each), then GO.
+export const COUNTDOWN = 4.0;
+export const ROLL_TIME = 1.3;          // item reel spin time
+export const RESCUE_TIME = 1.9;        // drone pick-up → carry → drop
 const DT = 1 / 60;
-const CC_SCALE = { 50: 0.82, 100: 0.94, 150: 1.06, 200: 1.2 };
+export const CC_SCALE = { 50: 0.8, 100: 0.94, 150: 1.06, 200: 1.22 };
+const smooth = (t) => { t = Math.max(0, Math.min(1, t)); return t * t * (3 - 2 * t); };
+const wrapAngle = (a) => { while (a > Math.PI) a -= 2 * Math.PI; while (a < -Math.PI) a += 2 * Math.PI; return a; };
 
 function mulberry(seed) {
   return () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
 }
 
 export class Race {
-  constructor({ trackDef, racers, laps = 3, cc = 100, seed = 1, attract = false }) {
+  constructor({ trackDef, racers, laps = 3, cc = 150, seed = 1, attract = false }) {
     this.def = trackDef;
     this.geo = new TrackGeo(trackDef);
     this.laps = attract ? 999 : laps;
@@ -55,13 +60,15 @@ export class Race {
     // --- karts on the grid
     this.karts = racers.map((r, i) => {
       const k = makeKart({ ...r, id: i });
-      const back = 7 + i * 5.5;
+      // staggered two-wide starting grid, pole on the left
+      const back = 6 + i * 4.6;
       const s = g.N - back / 2;
-      const lat = (i % 2 === 0 ? -1 : 1) * 4.2;
+      const lat = (i % 2 === 0 ? -1 : 1) * 4.6;
       const p = g.pointAt(s, lat);
       k.x = p.x; k.z = p.z; k.y = p.y; k.heading = p.heading;
       k.ti = Math.floor(g.wrap(s));
       k.u = s / g.N; k.lastU = k.u; k.lap = -1; k.prog = k.lap + k.u;
+      k.gridPos = i + 1;
       if (!r.human) k.ai = this.makeAI(r.skill ?? 0.6);
       return k;
     });
@@ -101,20 +108,30 @@ export class Race {
     if (this.phase === 'countdown') {
       const before = this.countdown;
       this.countdown -= dt;
-      for (const n of [3, 2, 1]) if (before > n - 0.4 && this.countdown <= n - 0.4) this.emit({ type: 'count', n });
-      // start-boost window: gas pressed in the last ~0.6s
+      for (const n of [3, 2, 1]) if (before > n && this.countdown <= n) this.emit({ type: 'count', n });
+      // Start boost: press BOOST (LEFT) while the "2" is up and keep holding through GO.
+      // Pressed during "3" and held → stall. Pressed during "1" → a small boost.
       for (const k of this.karts) {
-        const g = k.ai ? (this.countdown < 0.5 && this.rnd() < k.ai.skill * 0.05) : k.input.g > 0.5;
-        if (g && !k.gasEarly && this.countdown > 0.55) k.gasEarly = this.countdown < 1.6 ? 1 : 2;
-        if (g && this.countdown <= 0.55 && !k.gasEarly) k.startBoost = true;
-        if (k.ai && this.countdown < 0.5 && this.rnd() < 0.5 * k.ai.skill) k.startBoost = true;
+        if (k.ai) {
+          if (k.sbPress == null && this.countdown < 2 && this.countdown > 1.2 && this.rnd() < k.ai.skill * 0.02) k.sbPress = this.countdown;
+          continue;
+        }
+        const held = k.input.l > 0.5;
+        if (held && !k.sbHeld) k.sbPress = this.countdown;
+        if (!held) k.sbPress = null;
+        k.sbHeld = held;
       }
       if (this.countdown <= 0) {
         this.phase = 'race';
         this.emit({ type: 'go' });
         for (const k of this.karts) {
-          if (k.startBoost && !k.gasEarly) { giveBoost(k, 1.2, 1); this.emit({ type: 'startBoost', k }); }
-          k.gasEarly = 0;
+          const pc = k.sbPress;
+          if (pc != null) {
+            if (pc > 2) { k.stallT = 0.9; this.emit({ type: 'startStall', k }); }
+            else if (pc > 1) { giveBoost(k, 1.4, 1.1); this.emit({ type: 'startBoost', k, level: 2 }); }
+            else { giveBoost(k, 0.6, 0.8); this.emit({ type: 'startBoost', k, level: 1 }); }
+          }
+          k.sbPress = null; k.sbHeld = k.input.l > 0.5;
         }
       }
     }
@@ -122,12 +139,15 @@ export class Race {
     this.env.phase = this.phase === 'done' ? 'race' : this.phase;
 
     for (const k of this.karts) {
-      if (k.ai) this.aiThink(k, dt);
+      if (k.ai && k.rescueT <= 0) this.aiThink(k, dt);
       k.speedMul = k.ai ? k.ai.rb || 1 : 1;
       const prevScale = this.env.scale;
       this.env.scale = this.scale * k.speedMul;
       stepKart(k, dt, this.env);
       this.env.scale = prevScale;
+      if (k.rescueT > 0) this.stepRescue(k, dt);
+      else this.watchdog(k, dt);
+      this.honk(k, dt);
       this.items(k, dt);
       this.features(k);
       this.progress(k);
@@ -137,6 +157,86 @@ export class Race {
     this.stepBoxes(dt);
     this.updatePlaces();
     this.checkEnd(dt);
+  }
+
+  // ---------------- rescue drone ----------------
+  // Wrong way for a bit, stuck against something, or fell into the falls → the drone picks
+  // you up, turns you the right way and drops you back on the road around the same spot.
+  watchdog(k, dt) {
+    if (this.phase !== 'race' || this.attract && !k.ai) return;
+    if (k.finished && !k.ai) return;
+    const g = this.geo;
+    // fell short of a gap (or any other way below the world)
+    const gp = g.gapAt(k.s);
+    if ((gp && k.y < gp.lipY - 5) || k.y < -25) { this.startRescue(k, 'fall'); return; }
+    if (!k.grounded) return;
+    const i = k.ti >= 0 ? k.ti : 0;
+    const dot = Math.sin(k.heading) * g.tx[i] + Math.cos(k.heading) * g.tz[i];
+    if (dot < -0.35 && k.v > 2 && k.spinT <= 0) k.wrongT += dt;
+    else k.wrongT = Math.max(0, k.wrongT - dt * 2);
+    if (k.wrongT > 1.8) { this.startRescue(k, 'wrong'); return; }
+    if (Math.abs(k.v) < 3 && k.spinT <= 0 && k.stallT <= 0 && !k.finished) k.stuckT += dt;
+    else k.stuckT = 0;
+    if (k.stuckT > (k.ai ? 4 : 2.5)) this.startRescue(k, 'stuck');
+  }
+
+  startRescue(k, reason) {
+    if (k.rescueT > 0) return;
+    const g = this.geo;
+    let s = k.s;
+    if (reason === 'fall') {
+      // drop them just past the gap they fell into (friendlier than making them redo the jump)
+      const gp = g.gapAt(s) || g.gaps.find(q => s < q.s0 && q.s0 - s < 30);
+      if (gp) s = gp.s1 + 5;
+    } else if (reason === 'wrong') {
+      s = s - 1; // back where they turned around
+    }
+    let gp2 = g.gapAt(s);
+    if (gp2) s = gp2.s1 + 5;
+    const hw = g.w[g.wrap(Math.floor(s))];
+    const lat = Math.max(-hw * 0.45, Math.min(hw * 0.45, reason === 'fall' ? 0 : k.lat));
+    const tp = g.pointAt(s, lat, {});
+    k.rescue = { reason, t: 0, fx: k.x, fy: k.y, fz: k.z, fh: k.heading, tx: tp.x, ty: tp.y, tz: tp.z, th: tp.heading };
+    k.rescueT = RESCUE_TIME;
+    k.v = 0; k.vy = 0; k.kx = 0; k.kz = 0;
+    k.drift = 0; k.driftCharge = 0; k.driftLevel = 0; k.driftArm = false;
+    k.spinT = 0; k.gliding = false; k.grounded = false; k.trick = false; k.fromRamp = false;
+    k.wrongT = 0; k.stuckT = 0;
+    this.emit({ type: 'rescue', k, reason });
+  }
+
+  stepRescue(k, dt) {
+    const r = k.rescue, g = this.geo;
+    r.t += dt; k.rescueT -= dt;
+    const LIFT = 0.45, CARRY = 1.35, H = 4.5;
+    if (r.t < LIFT) {
+      const e = smooth(r.t / LIFT);
+      k.x = r.fx; k.z = r.fz; k.y = r.fy + e * H; k.heading = r.fh;
+    } else if (r.t < CARRY) {
+      const e = smooth((r.t - LIFT) / (CARRY - LIFT));
+      k.x = r.fx + (r.tx - r.fx) * e; k.z = r.fz + (r.tz - r.fz) * e;
+      k.y = r.fy + (r.ty - r.fy) * e + H + Math.sin(e * Math.PI) * 1.5;
+      k.heading = r.fh + wrapAngle(r.th - r.fh) * e;
+    } else {
+      const e = smooth((r.t - CARRY) / (RESCUE_TIME - CARRY));
+      k.x = r.tx; k.z = r.tz; k.y = r.ty + (1 - e) * H; k.heading = r.th;
+    }
+    const p = g.project(k.x, k.z, k.ti, k._proj || (k._proj = {}));
+    k.ti = p.i; k.s = p.s; k.lat = p.lat;
+    if (k.rescueT <= 0) {
+      k.rescueT = 0; k.rescue = null;
+      k.x = r.tx; k.z = r.tz; k.y = r.ty; k.heading = r.th;
+      k.grounded = true; k.v = 15 * this.scale; k.invulnT = 1.2;
+      k.steerIn = 0; k.prevDrift = 1; k.prevHop = 1; // ignore buttons still held from before
+      this.emit({ type: 'rescued', k });
+    }
+  }
+
+  honk(k, dt) {
+    k.honkT = Math.max(0, (k.honkT || 0) - dt);
+    const held = !k.ai && k.input.l > 0.5;
+    if (this.phase === 'race' && held && !k.honkHeld && k.honkT <= 0 && !k.finished) { k.honkT = 0.45; this.emit({ type: 'honk', k }); }
+    k.honkHeld = held;
   }
 
   features(k) {
@@ -216,7 +316,7 @@ export class Race {
     } else ai.rb = k.finished ? 0.8 : 0.97;
 
     ai.laneT -= dt;
-    if (ai.laneT <= 0) { ai.lane = (this.rnd() * 2 - 1) * 0.55; ai.laneT = 2 + this.rnd() * 4; }
+    if (ai.laneT <= 0) { ai.lane = (this.rnd() * 2 - 1) * 0.45; ai.laneT = 2 + this.rnd() * 4; }
     const look = (9 + Math.max(0, k.v) * 0.55) / 2;
     const ts = k.s + look;
     const curvAhead = g.curvSmooth[g.wrap(Math.floor(k.s + look * 1.4))];
@@ -234,7 +334,7 @@ export class Race {
         }
       }
     }
-    lane = Math.max(-0.75, Math.min(0.75, lane));
+    lane = Math.max(-0.55, Math.min(0.55, lane));
     const tp = g.pointAt(ts, lane * g.w[g.wrap(Math.floor(ts))], this._tp || (this._tp = {}));
     const want = Math.atan2(tp.x - k.x, tp.z - k.z);
     let diff = want - k.heading;
@@ -249,6 +349,9 @@ export class Race {
     if (ai.holdDrift) {
       if (!strong && (k.driftLevel >= 1 || k.drift === 0) || k.spinT > 0) ai.holdDrift = false;
       if (k.drift !== 0 && Math.sign(steer) !== k.drift && Math.abs(diff) > 0.8) ai.holdDrift = false;
+      // drifting wide into the wall: let go
+      const hwNow = g.w[g.wrap(Math.floor(k.s))];
+      if (k.drift !== 0 && Math.abs(k.lat) > hwNow * 0.72 && Math.sign(k.lat) === -k.drift) ai.holdDrift = false;
     }
     inp.d = ai.holdDrift ? 1 : 0;
     if (ai.holdDrift && k.drift === 0 && Math.abs(steer) < 0.3) steer = Math.sign(curvAhead || 1) * 0.45;
@@ -290,7 +393,8 @@ export class Race {
       k.itemRoll -= dt;
       if (k.itemRoll <= 0) {
         k.itemRoll = 0;
-        k.item = rollItem(k.place, this.karts.length, this.rnd);
+        k.item = k.itemNext || rollItem(k.place, this.karts.length, this.rnd);
+        k.itemNext = null;
         k.itemCharges = ITEMS[k.item].charges;
         this.emit({ type: 'itemGet', k, item: k.item });
       }
@@ -298,7 +402,7 @@ export class Race {
     const btn = k.input.i > 0.5;
     const press = btn && !k.itemPrevBtn;
     k.itemPrevBtn = btn;
-    if (!press || !k.item || k.itemRoll > 0 || this.phase !== 'race' || k.spinT > 0) return;
+    if (!press || !k.item || k.itemRoll > 0 || this.phase !== 'race' || k.spinT > 0 || k.rescueT > 0) return;
     if (k.finished && k.human) return;
     this.useItem(k);
   }
@@ -348,11 +452,16 @@ export class Race {
     for (const b of this.boxes) {
       if (!b.alive) { b.t -= dt; if (b.t <= 0) b.alive = true; continue; }
       for (const k of this.karts) {
+        if (k.rescueT > 0) continue;
         const dx = k.x - b.x, dz = k.z - b.z;
         if (dx * dx + dz * dz < 2.7 * 2.7 && Math.abs(k.y - b.y) < 3) {
           b.alive = false; b.t = 2.5;
           this.emit({ type: 'box', k, box: b });
-          if (!k.item && k.itemRoll <= 0) { k.itemRoll = 1.4; this.emit({ type: 'roll', k }); }
+          if (!k.item && k.itemRoll <= 0) {
+            k.itemNext = rollItem(k.place, this.karts.length, this.rnd);
+            k.itemRoll = ROLL_TIME;
+            this.emit({ type: 'roll', k, item: k.itemNext, dur: ROLL_TIME });
+          }
           break;
         }
       }
@@ -406,6 +515,7 @@ export class Race {
       if (pr.life > 0) {
         for (const k of this.karts) {
           if (k.id === pr.owner && pr.age < 0.5) continue;
+          if (k.rescueT > 0) continue;
           const dx = k.x - pr.x, dz = k.z - pr.z;
           if (dx * dx + dz * dz < (k.megaT > 0 ? 2.6 : 1.8) ** 2 && Math.abs(k.y + 0.5 - pr.y) < 2.5) {
             hitKart(k, pr.type === 'rocket' ? 'explosion' : 'spin', this.env);
@@ -438,7 +548,7 @@ export class Race {
       if (h.life <= 0) continue;
       for (const k of this.karts) {
         if (h.owner === k.id && h.age < 0.6) continue;
-        if ((k.x - h.x) ** 2 + (k.z - h.z) ** 2 < 2.0 * 2.0 && k.grounded) {
+        if ((k.x - h.x) ** 2 + (k.z - h.z) ** 2 < 2.0 * 2.0 && k.grounded && k.rescueT <= 0) {
           if (k.invulnT > 0 && k.megaT <= 0) continue; // already spinning — pass through
           hitKart(k, 'spin', this.env); h.life = 0; this.emit({ type: 'oilHit', k, h });
           break;
@@ -452,6 +562,7 @@ export class Race {
     const ks = this.karts;
     for (let i = 0; i < ks.length; i++) for (let j = i + 1; j < ks.length; j++) {
       const a = ks[i], b = ks[j];
+      if (a.rescueT > 0 || b.rescueT > 0) continue;
       const ra = a.megaT > 0 ? 1.9 : 1.25, rb = b.megaT > 0 ? 1.9 : 1.25;
       const dx = b.x - a.x, dz = b.z - a.z;
       const d2 = dx * dx + dz * dz, R = ra + rb;
