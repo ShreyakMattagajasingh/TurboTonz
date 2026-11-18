@@ -169,7 +169,7 @@ export class GameView {
     container.appendChild(r.domElement);
     r.domElement.className = 'game-canvas';
     this.renderer = r;
-    this.cams = []; this.karts = []; this.ents = new Map();
+    this.cams = []; this.karts = []; this.ents = new Map(); this.worlds = new Map();
     this.time = 0; this.frameTimes = []; this.prTimer = 0;
     this.mode = 'attract';
     this.attract = { cam: new ChaseCam(), target: 0, t: 0, shot: 0 };
@@ -184,46 +184,77 @@ export class GameView {
     this.layout = layoutViewports(Math.max(1, this.humanIds ? this.humanIds.length : 1), W, H);
   }
 
+  // Remove this race's karts, tags, drones and items. The track world itself stays cached.
   dispose() {
     if (!this.scene) return;
-    this.scene.traverse(o => {
-      if (o.geometry) o.geometry.dispose();
-      if (o.material) (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => m.dispose());
-    });
-    for (const m of this.karts) m.model.dispose?.();
+    for (const { model, blob, tag, drone } of this.karts) {
+      model.dispose?.();
+      this.raceGroup.remove(model.group, blob, drone.group);
+      if (tag) { this.raceGroup.remove(tag); tag.material.map?.dispose(); tag.material.dispose(); }
+    }
+    for (const m of this.ents.values()) {
+      this.raceGroup.remove(m);
+      m.traverse(o => { o.geometry?.dispose(); });
+    }
     this.karts = []; this.ents.clear();
-    this.renderer.renderLists.dispose();
     this.scene = null;
   }
+
+  // Each track's 3D world is built once and kept, so switching tracks is instant
+  // (no page freeze, no stutter in the music).
+  getWorld(race) {
+    const id = race.def.id;
+    let w = this.worlds.get(id);
+    if (!w) {
+      w = buildWorld(race, this.renderer);
+      w.effects = new Effects(w.scene, w.theme);
+      w.snowFx = w.weather === 'snow' ? makeSnow(w.scene) : null;
+      w.raceGroup = new THREE.Group();
+      w.scene.add(w.raceGroup);
+      this.renderer.compile(w.scene, this.attract.cam.cam); // compile shaders now, not on the first frame
+      this.worlds.set(id, w);
+    } else {
+      // item crystals belong to the new race object (same layout, same order)
+      w.boxes.forEach((b, i) => { if (race.boxes[i]) b.box = race.boxes[i]; });
+    }
+    return w;
+  }
+
+  // Build a track's world ahead of time (called while the lobby is idle).
+  preload(race) { if (!this.worlds.has(race.def.id)) this.getWorld(race); }
 
   setRace(race, mode = 'race') {
     this.dispose();
     this.race = race;
     this.mode = mode;
-    this.world = buildWorld(race, this.renderer);
+    this.world = this.getWorld(race);
     this.scene = this.world.scene;
+    this.raceGroup = this.world.raceGroup;
     this.renderer.toneMappingExposure = this.world.th.exposure;
-    this.effects = new Effects(this.scene, this.world.theme);
-    this.snow = this.world.weather === 'snow' ? makeSnow(this.scene) : null;
+    this.effects = this.world.effects;
+    this.snow = this.world.snowFx;
     this.shadowFrame = 0;
-    const blobMat = new THREE.MeshBasicMaterial({ map: particleTexture(), color: '#000', transparent: true, opacity: 0.45, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4 });
-    const blobGeo = new THREE.PlaneGeometry(2.6, 3.2).rotateX(-Math.PI / 2);
+    if (!this.blobMat) {
+      this.blobMat = new THREE.MeshBasicMaterial({ map: particleTexture(), color: '#000', transparent: true, opacity: 0.45, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4 });
+      this.blobGeo = new THREE.PlaneGeometry(2.6, 3.2).rotateX(-Math.PI / 2);
+    }
+    const blobMat = this.blobMat, blobGeo = this.blobGeo;
     this.humanIds = race.karts.filter(k => k.human).sort((a, b) => a.slot - b.slot).map(k => k.id);
     for (const k of race.karts) {
       const model = buildKart(k.char, { lod: this.humanIds.length >= 3 ? 1 : 0 });
       model.group.traverse(o => { if (o.isMesh) { o.castShadow = true; } });
-      this.scene.add(model.group);
+      this.raceGroup.add(model.group);
       const blob = new THREE.Mesh(blobGeo, blobMat);
-      this.scene.add(blob);
+      this.raceGroup.add(blob);
       let tag = null;
       if (k.human) {
         tag = nameTag(k.name, k.color);
         const layer = 1 + this.humanIds.indexOf(k.id);
         tag.layers.set(layer);
-        this.scene.add(tag);
+        this.raceGroup.add(tag);
       }
       const drone = buildDrone();
-      this.scene.add(drone.group);
+      this.raceGroup.add(drone.group);
       this.karts.push({ k, model, blob, tag, drone });
     }
     this.cams = this.humanIds.map((id, i) => {
@@ -232,10 +263,8 @@ export class GameView {
       return { id, cc: c };
     });
     this.attract.cam = new ChaseCam(); this.attract.cam.cam.layers.enableAll();
-    this.attract.target = Math.floor(Math.random() * race.karts.length);
+    this.attract.target = Math.floor(Math.random() * Math.max(1, race.karts.length));
     this.resize();
-    // compile shaders up front to avoid first-frame hitch
-    this.renderer.compile(this.scene, this.attract.cam.cam);
     this.renderer.shadowMap.needsUpdate = true;
   }
 
@@ -266,13 +295,13 @@ export class GameView {
     for (const e of list) {
       seen.add(e.id);
       let m = this.ents.get(e.id);
-      if (!m) { m = this.makeEntity(e); this.ents.set(e.id, m); this.scene.add(m); }
+      if (!m) { m = this.makeEntity(e); this.ents.set(e.id, m); this.raceGroup.add(m); }
       m.position.set(e.x, e.type === 'oil' ? e.y + 0.06 : e.y, e.z);
       if (e.type === 'bouncer') { m.rotation.x += 0.3; m.rotation.y += 0.2; }
       if (e.type === 'rocket') { m.rotation.y = Math.atan2(e.vx, e.vz); }
       if (e.type === 'oil') { const s = Math.min(1, e.age * 4); m.scale.set(s, 1, s); }
     }
-    for (const [id, m] of this.ents) if (!seen.has(id)) { this.scene.remove(m); this.ents.delete(id); }
+    for (const [id, m] of this.ents) if (!seen.has(id)) { this.raceGroup.remove(m); m.traverse(o => o.geometry?.dispose()); this.ents.delete(id); }
   }
 
   makeEntity(e) {

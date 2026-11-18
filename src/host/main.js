@@ -285,6 +285,21 @@ function cpuRacers(n, exclude = []) {
   return out;
 }
 
+// Build every track's 3D world once in the background while the lobby sits idle,
+// so picking a different track later is instant.
+function preloadTracks() {
+  const todo = TRACKS.map((t, i) => i).filter(i => i !== app.settings.track);
+  const next = () => {
+    if (!todo.length) return;
+    if (app.phase !== 'lobby') { setTimeout(next, 2000); return; } // never during a race
+    const i = todo.shift();
+    audio.bridge(3);
+    try { view.preload(new Race({ trackDef: TRACKS[i], racers: [], laps: 1, attract: true })); } catch (e) { console.warn('preload failed', e); }
+    setTimeout(next, 400);
+  };
+  setTimeout(next, 1200);
+}
+
 function startAttract() {
   const tr = TRACKS[app.settings.track];
   audio.bridge(3); // the rebuild blocks the page for a moment; queue enough music to cover it
@@ -688,6 +703,7 @@ async function boot() {
   startAttract();
   requestAnimationFrame(frame);
   openRoom();
+  preloadTracks();
   try { app.portraits = await renderPortraits(160); } catch (e) { console.warn('portraits failed', e); }
   renderLobby();
   // test hook: auto-add keyboard players  (?kb=2)
